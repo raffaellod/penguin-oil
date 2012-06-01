@@ -1,0 +1,105 @@
+#!/bin/sh
+# -*- coding: utf-8; mode: sh; tab-width: 3 -*-
+#--------------------------------------------------------------------------- #
+# kernel-tools																					  #
+# Copyright 2012 Raffaello D. Di Napoli												  #
+# -------------------------------------------------------------------------- #
+# This file is part of kernel-tools.													  #
+#																									  #
+# kernel-tools is free software: you can redistribute it and/or modify it	  #
+# under the terms of the GNU General Public License as published by the Free #
+# Software Foundation, either version 3 of the License, or (at your option)  #
+# any later version.																			  #
+#																									  #
+# kernel-tools is distributed in the hope that it will be useful, but		  #
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY #
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License	  #
+# for more details.																			  #
+#																									  #
+# You should have received a copy of the GNU General Public License along	  #
+# with kernel-tools. If not, see <http://www.gnu.org/licenses/>.				  #
+# -------------------------------------------------------------------------- #
+
+modules=0
+packages=0
+
+# Scan the command line.
+for arg; do
+	case "${arg}" in
+	(-mp|-pm)
+		modules=1
+		packages=1
+		;;
+	(-m|--modules)
+		modules=1
+		;;
+	(-p|--packages)
+		packages=1
+		;;
+	(*)
+		cat <<-EOF
+			Usage: ${0##*/} [options]
+
+			Options:
+			 	 --help	Show this informative message.
+			-m, --modules	List modules installed by non-kernel packages.
+			-p, --packages	List installed packages whose contents include kernel modules.
+
+			If no options are specified, -m -p is assumed.
+		EOF
+		[ "${arg}" = --help ]
+		exit
+		;;
+	esac
+done
+
+[ ${modules} -ne 0 -o ${packages} -ne 0 ] || modules=1 packages=1
+
+
+vdb_path=$(portageq vdb_path)
+
+find ${vdb_path} -mindepth 3 -maxdepth 3 -type f -name CONTENTS -exec \
+awk -v ichPkgPath=$((${#vdb_path} + 2)) \
+    -v bMods=${modules} \
+    -v bPkgs=${packages} '
+	$1 == "obj" && $2 ~ /\.ko$/ {
+		if (bPkgs) {
+			sDir = ARGV[ARGIND]
+			sDir = substr(sDir, 1, length(sDir) - 9)
+			# Cache the SLOTs in an array.
+			if (!(sDir in arrPkgSlots)) {
+				sSlot = sDir "/SLOT"
+				getline arrPkgSlots[sDir] < sSlot
+				close(sSlot)
+			}
+			sSlot = arrPkgSlots[sDir]
+			sPkg = substr(sDir, ichPkgPath)
+			# Replace the package version with its slot.
+			sub(/-[0-9].*$/, ":" sSlot, sPkg)
+		}
+		if (bMods) {
+			sMod = $2
+			# Make the module path relative to
+			# ${ROOT}/lib/modules/linux-*/ .
+			sub(/^.*\/lib\/modules\/[^\/]+\//, " ", sMod)
+			if (bPkgs)
+				arrPkgMods[sPkg] = arrPkgMods[sPkg] sMod
+			else
+				sMods = sMods sMod
+		} else
+			arrPkgMods[sPkg] = 1
+	}
+	END {
+		if (bPkgs)
+			for (sPkg in arrPkgMods)
+				if (bMods)
+					print sPkg arrPkgMods[sPkg]
+				else
+					print sPkg
+		else if (length(sMods)) {
+			sMods = substr(sMods, 2)
+			gsub(/ /, "\n", sMods)
+			print sMods
+		}
+	}
+' {} +
