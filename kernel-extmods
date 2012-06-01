@@ -79,8 +79,7 @@ awk -v ichPkgPath=$((${#vdb_path} + 2)) \
 		}
 		if (bMods) {
 			sMod = $2
-			# Make the module path relative to
-			# ${ROOT}/lib/modules/linux-*/ .
+			# Make the module path relative to ${ROOT}/lib/modules/linux-*/ .
 			sub(/^.*\/lib\/modules\/[^\/]+\//, " ", sMod)
 			if (bPkgs)
 				arrPkgMods[sPkg] = arrPkgMods[sPkg] sMod
@@ -103,3 +102,4 @@ awk -v ichPkgPath=$((${#vdb_path} + 2)) \
 		}
 	}
 ' {} +
+

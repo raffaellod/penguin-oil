@@ -146,8 +146,8 @@ getkv() {
 }
 
 if ! getkv; then
-	# No kernel was specified: find one, first checking if the standard
-	# symlink is in place.
+	# No kernel was specified: find one, first checking if the standard symlink
+	# is in place.
 	kg_src="${p_root}usr/src/linux"
 	if [ -d "${kg_src}" ]; then
 		if ! getkv; then
@@ -170,8 +170,8 @@ kg_src="${kg_src%/}/"
 kg_src_cfg="${kg_src}.config"
 kg_src_sysmap="${kg_src}System.map"
 
-# Check that the kernel has already been configured. One of these lines must be
-# near the top of the .config file:
+# Check that the kernel has already been configured. One of these lines must
+# be near the top of the .config file:
 #   Linux/i386 2.6.37 Kernel Configuration
 #   Linux kernel version: 2.6.34
 if awk -v sKV="${kg_kv}" '
@@ -278,7 +278,9 @@ if [ -n "${kg_initramfs}" ]; then
 fi
 
 # Determine if cross-compiling.
-CROSS_COMPILE=$(sed -ne 's/^CONFIG_CROSS_COMPILE="\([^"]*\)"$/\1/p' <"${kg_src_cfg}")
+CROSS_COMPILE=$(
+	sed -ne 's/^CONFIG_CROSS_COMPILE="\([^"]*\)"$/\1/p' <"${kg_src_cfg}"
+)
 export CROSS_COMPILE
 
 
@@ -332,7 +334,9 @@ if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 		ebegin 'Rebuilding kernel module packages'
 		kg_modpkgs=$(kernel-extmods -p)
 		if [ -n "${kg_modpkgs}" ]; then
-			env KERNEL_DIR="${kg_src}" "${CROSS_COMPILE}emerge" -q1 --quiet-build ${kg_modpkgs} >/dev/null
+			env KERNEL_DIR="${kg_src}" \
+				"${CROSS_COMPILE}emerge" -q1 --quiet-build ${kg_modpkgs} \
+				>/dev/null
 			eend ${?} || exit
 		else
 			eend 0
@@ -357,7 +361,8 @@ if [ -n "${kg_initramfs}" ]; then
 		einfo 'Invoking initramfs custom build script'
 		eindent
 		# ARCH and CROSS_COMPILE are exported, too.
-		env ROOT="${kg_root}" KERNEL_DIR="${kg_src}" "${kg_initramfs}/build" || exit
+		env ROOT="${kg_root}" KERNEL_DIR="${kg_src}" "${kg_initramfs}/build" ||
+			exit
 		eoutdent
 	else
 		# No build script; just copy every file.
@@ -384,10 +389,19 @@ if ${kg_install}; then
 	getdstpaths
 
 	dirsize() {
-		[ ! -d "${1}" ] && echo 0 || find "${1}" -name '*.ko' -printf '%s\n' | awk '{ cb += $0 } END { print cb }'
+		if [ -d "${1}" ]; then
+			find "${1}" -name '*.ko' -printf '%s\n' |
+			awk '{ cb += $0 } END { print cb }'
+		else
+			echo 0
+		fi
 	}
 	filesize() {
-		[ ! -f "${1}" ] && echo 0 || stat -c'%s' "${1}"
+		if [ -f "${1}" ]; then
+			stat -c'%s' "${1}"
+		else
+			echo 0
+		fi
 	}
 	einfo_sizediff() {
 		if [ ${2} -eq ${3} ]; then
@@ -395,7 +409,8 @@ if ${kg_install}; then
 		elif [ ${2} -eq 0 ]; then
 			einfo "${1} size is $(( ( ${3} + 1023 ) / 1024 )) KiB"
 		else
-			[ ${3} -gt ${2} ] && plussign='+' || plussign=
+			local plussign=
+			[ ${3} -gt ${2} ] && plussign='+'
 			einfo "${1} size changed from $((
 				( ${2} + 1023 ) / 1024
 			)) KiB to $((
@@ -415,11 +430,19 @@ if ${kg_install}; then
 
 	# Remove any initramfs-${kg_kv}.cpio.*, not just the one we're going to
 	# replace.
-	if [ -e "${kg_dst_img}" -o -e "${kg_dst_mods}" -o -e "${kg_dst_initramfs%.*}".* ]; then
+	if [
+		-e "${kg_dst_img}" -o
+		-e "${kg_dst_mods}" -o
+		-e "${kg_dst_initramfs%.*}".*
+	]; then
 		ebegin 'Removing old files'
 		cbKernel=$(filesize "${kg_dst_img}")
 		cbModules=$(dirsize "${kg_dst_mods}")
-		rm -f "${kg_dst_img}" "${kg_dst_initramfs%.*}".* "${kg_dst_cfg}" "${kg_dst_sysmap}"
+		rm -f \
+			"${kg_dst_img}" \
+			"${kg_dst_initramfs%.*}".* \
+			"${kg_dst_cfg}" \
+			"${kg_dst_sysmap}"
 		# Remove every kernel module, leaving any out-of-tree ones.
 		find "${kg_dst_mods}" $(
 			kernel-extmods -m |
@@ -434,8 +457,8 @@ if ${kg_install}; then
 	[ -d "${kg_root}boot" ] || mkdir "${kg_root}boot"
 	kg_boot_unmount=false
 	if [ ! -e "${kg_root}boot/boot" ]; then
-		# Maybe /boot needs to be mounted. Can't just run mount /boot,
-		# since ${kg_root} is not necessarily '/'.
+		# Maybe /boot needs to be mounted. Can't just run mount /boot, since
+		# ${kg_root} is not necessarily '/'.
 		kg_boot_mount=$(awk '
 			!/^#/ && $2 == "/boot" {
 				print $1 " -t " $3 " -o " $4
@@ -546,3 +569,4 @@ if [ -n "${kg_initramfs}" ]; then
 	rm -f "${kg_src_initramfs}"
 	eend ${?}
 fi
+
