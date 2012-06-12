@@ -428,12 +428,32 @@ if ${kg_install}; then
 	fi
 	eindent
 
+	# Ensure /boot is mounted.
+	[ -d "${kg_root}boot" ] || mkdir "${kg_root}boot"
+	kg_boot_unmount=false
+	if [ ! -e "${kg_root}boot/boot" ]; then
+		# Maybe /boot needs to be mounted. Can't just run mount /boot, since
+		# ${kg_root} is not necessarily '/'.
+		kg_boot_mount=$(awk '
+			!/^#/ && $2 == "/boot" {
+				print $1 " -t " $3 " -o " $4
+			}
+		' <"${kg_root}etc/fstab")
+		if [ -n "${kg_boot_mount}" ]; then
+			ebegin "Mounting ${kg_boot_mount%% *} to ${kg_root}boot"
+			mount ${kg_boot_mount} "${kg_root}boot"
+			eend ${?} || exit
+			kg_boot_unmount=true
+		fi
+	fi
+
 	# Remove any initramfs-${kg_kv}.cpio.*, not just the one we're going to
-	# replace.
-	if [
-		-e "${kg_dst_img}" -o
-		-e "${kg_dst_mods}" -o
-		-e "${kg_dst_initramfs%.*}".*
+	# replace; this ensures we don't leave around a leftover initramfs just
+	# because it uses a different compression algorithm.
+	if [ \
+		-e "${kg_dst_img}" -o \
+		-e "${kg_dst_mods}" -o \
+		-e "${kg_dst_initramfs%.*}".* \
 	]; then
 		ebegin 'Removing old files'
 		cbKernel=$(filesize "${kg_dst_img}")
@@ -454,23 +474,6 @@ if ${kg_install}; then
 		cbModules=0
 	fi
 
-	[ -d "${kg_root}boot" ] || mkdir "${kg_root}boot"
-	kg_boot_unmount=false
-	if [ ! -e "${kg_root}boot/boot" ]; then
-		# Maybe /boot needs to be mounted. Can't just run mount /boot, since
-		# ${kg_root} is not necessarily '/'.
-		kg_boot_mount=$(awk '
-			!/^#/ && $2 == "/boot" {
-				print $1 " -t " $3 " -o " $4
-			}
-		' <"${kg_root}etc/fstab")
-		if [ -n "${kg_boot_mount}" ]; then
-			ebegin "Mounting ${kg_boot_mount%% *} to ${kg_root}boot"
-			mount ${kg_boot_mount} "${kg_root}boot"
-			eend ${?} || exit
-			kg_boot_unmount=true
-		fi
-	fi
 	ebegin 'Installing kernel image'
 	cp -a "${kg_src_img}" "${kg_dst_img}" &&
 	cp -a "${kg_src_cfg}" "${kg_dst_cfg}" &&
