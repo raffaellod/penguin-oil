@@ -50,6 +50,7 @@ eval getportageenv $(
 kg_arch="${p_arch}"
 kg_distcc=${p_distcc}
 unset kg_initramfs
+kg_initramfs_debug=false
 kg_install=true
 kg_makeopts="${p_makeopts}"
 kg_pkg=
@@ -72,6 +73,9 @@ for arg; do
 		;;
 	(--initramfs=?*)
 		kg_initramfs="${arg#*=}"
+		;;
+	(--initramfs-debug)
+		kg_initramfs_debug=true
 		;;
 	(--no-initramfs)
 		kg_initramfs=
@@ -107,8 +111,10 @@ for arg; do
 		Possible options:
 		--arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
 		 			to Portage's ARCH variable.
-		--initramfs=DIR		Use DIR as a initramfs source directory. Defaults to
+		--initramfs=DIR		Use DIR as an initramfs source directory. Defaults to
 		 			\`\${ROOT}/usr/src/initramfs'.
+		--initramfs-debug	Dumps the contents of the generated initramfs before
+		 			packaging it.
 		--help			Show this informative message.
 		--no-initramfs		Ignore the initramfs directory, even if existent.
 		--no-install		Don't install the compiled kernel; also ignores --root
@@ -322,7 +328,7 @@ getdstpaths() {
 	kg_dst_mods="${kg_root}lib/modules/${kg_kv}"
 }
 
-# Only invoke make if .config was not changed since last compilation.
+# Only invoke make if .config was changed since last compilation.
 if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 	ebegin "Building linux-${kg_kv}"
 	kmake "${@}"
@@ -369,6 +375,14 @@ if [ -n "${kg_initramfs}" ]; then
 		ebegin 'Adding source files'
 		cp -a "${kg_initramfs}/"* "${kg_work}"
 		eend ${?} || exit
+	fi
+
+	if ${kg_initramfs_debug}; then
+		initramfs_ls="${p_tmpdir}/initramfs-${kg_kv}.ls"
+		ebegin "Dumping contents of generated initramfs to ${initramfs_ls}"
+		ls -lR --color=always >"${initramfs_ls}"
+		eend ${?} || exit
+		unset initramfs_ls
 	fi
 
 	ebegin 'Creating archive'
