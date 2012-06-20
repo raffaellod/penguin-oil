@@ -338,7 +338,7 @@ if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 
 	if ${kg_rebuildmods}; then
 		ebegin 'Rebuilding kernel module packages'
-		kg_modpkgs=$(kernel-extmods -p)
+		kg_modpkgs=$(kernel-lsext -m -p)
 		if [ -n "${kg_modpkgs}" ]; then
 			env KERNEL_DIR="${kg_src}" \
 				"${CROSS_COMPILE}emerge" -q1 --quiet-build ${kg_modpkgs} \
@@ -352,7 +352,11 @@ fi
 
 if [ -n "${kg_initramfs}" ]; then
 	kg_work="${p_tmpdir}/initramfs-${kg_kv}/"
-	[ -d "${kg_work%/}" ] && rm -rf "${kg_work}"* || mkdir "${kg_work%/}"
+	if [ -d "${kg_work%/}" ]; then
+		rm -rf "${kg_work}"*
+	else
+		mkdir "${kg_work%/}"
+	fi
 	cd "${kg_work}"
 
 	einfo 'Generating initramfs'
@@ -360,6 +364,24 @@ if [ -n "${kg_initramfs}" ]; then
 
 	ebegin 'Adding kernel modules'
 	kmake INSTALL_MOD_PATH="${kg_work}" modules_install >/dev/null
+	eend ${?} || exit
+
+	ebegin 'Adding out-of-tree firmware'
+	# Create the folder beforehand; it not needed, we'll delete it later.
+	kg_fwdir="${kg_work}lib/firmware"
+	mkdir "${kg_fwdir}"
+	for kg_extfw in $(env ROOT="${kg_root}" kernel-lsext -w -f); do
+		# If the firmware is in a subfolder, create it.
+		kg_exfwdir=${kg_extfw%/*}
+		[ ${kg_exfwdir} != ${kg_extfw} ] &&
+			mkdir -p "${kg_fwdir}/${kg_exfwdir}"
+		# Copy the firmware file.
+		cp -a "${kg_root}lib/firmware/${kg_extfw}" \
+				"${kg_fwdir}/${kg_extfw}" || eend ${?} || exit
+	done
+	# If /lib/firmware is still empty, delete it.
+	[ "$(echo "${kg_fwdir}"/*)" != "${kg_fwdir}/*" ] ||
+		rmdir "${kg_fwdir}"
 	eend ${?} || exit
 
 	if [ -f "${kg_initramfs}/build" -a -x "${kg_initramfs}/build" ]; then
@@ -470,22 +492,24 @@ if ${kg_install}; then
 		-e "${kg_dst_initramfs%.*}".* \
 	]; then
 		ebegin 'Removing old files'
-		cbKernel=$(filesize "${kg_dst_img}")
-		cbModules=$(dirsize "${kg_dst_mods}")
+		kg_kernel_size=$(filesize "${kg_dst_img}")
+		kg_mods_size=$(dirsize "${kg_dst_mods}")
+		kg_initramfs_size=$(filesize "${kg_dst_initramfs}")
 		rm -f \
 			"${kg_dst_img}" \
 			"${kg_dst_initramfs%.*}".* \
 			"${kg_dst_cfg}" \
 			"${kg_dst_sysmap}"
-		# Remove every kernel module, leaving any out-of-tree ones.
+		# Remove every in-tree kernel module, leaving only the out-of-tree ones.
 		find "${kg_dst_mods}" $(
-			kernel-extmods -m |
+			env ROOT="${kg_root}" kernel-lsext -m -f |
 			sed -e 's|^|! -path \*/|'
 		) \( ! -type d -o -empty \) -delete
 		eend ${?}
 	else
-		cbKernel=0
-		cbModules=0
+		kg_kernel_size=0
+		kg_mods_size=0
+		kg_initramfs_size=0
 	fi
 
 	ebegin 'Installing kernel image'
@@ -493,9 +517,9 @@ if ${kg_install}; then
 	cp -a "${kg_src_cfg}" "${kg_dst_cfg}" &&
 	cp -a "${kg_src_sysmap}" "${kg_dst_sysmap}"
 	eend ${?} || exit
-	if [ ${cbKernel} -gt 0 ]; then
+	if [ ${kg_kernel_size} -gt 0 ]; then
 		eindent
-		einfo_sizediff Kernel ${cbKernel} $(filesize "${kg_dst_img}")
+		einfo_sizediff Kernel ${kg_kernel_size} $(filesize "${kg_dst_img}")
 		eoutdent
 	fi
 
@@ -510,19 +534,22 @@ if ${kg_install}; then
 		}
 	'
 	eend 0
-	if [ ${cbModules} -gt 0 ]; then
+	if [ ${kg_mods_size} -gt 0 ]; then
 		eindent
-		einfo_sizediff Modules ${cbModules} $(dirsize "${kg_dst_mods}")
+		einfo_sizediff Modules ${kg_mods_size} $(dirsize "${kg_dst_mods}")
 		eoutdent
 	fi
 
 	if [ -n "${kg_initramfs}" ]; then
 		ebegin 'Installing initramfs'
-		cp "${kg_src_initramfs}" "${kg_dst_initramfs}"
+		cp -a "${kg_src_initramfs}" "${kg_dst_initramfs}"
 		eend ${?} || exit
-		eindent
-		einfo_sizediff initramfs 0 $(filesize "${kg_dst_initramfs}")
-		eoutdent
+		if [ ${kg_initramfs_size} -gt 0 ]; then
+			eindent
+			einfo_sizediff initramfs \
+				${kg_initramfs_size} $(filesize "${kg_dst_initramfs}")
+			eoutdent
+		fi
 	fi
 
 	if ${kg_boot_unmount}; then
@@ -551,21 +578,13 @@ if [ -n "${kg_pkg}" ]; then
 	cp -a "${kg_src_sysmap}" "${kg_dst_sysmap}"
 	eend ${?} || exit
 
-	einfon 'Adding modules ...'
-	kmake INSTALL_MOD_PATH="${kg_root}" modules_install |
-	awk '
-		$1 == "INSTALL" {
-			cMods += 1
-		}
-		END {
-			print " (" cMods ")"
-		}
-	'
+	ebegin 'Adding modules'
+	kmake INSTALL_MOD_PATH="${kg_root}" modules_install
 	eend 0
 
 	if [ -n "${kg_initramfs}" ]; then
 		ebegin 'Adding initramfs'
-		cp "${kg_src_initramfs}" "${kg_dst_initramfs}"
+		cp -a "${kg_src_initramfs}" "${kg_dst_initramfs}"
 		eend ${?} || exit
 	fi
 

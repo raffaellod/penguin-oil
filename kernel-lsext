@@ -20,15 +20,16 @@
 # with kernel-tools. If not, see <http://www.gnu.org/licenses/>.				  #
 # -------------------------------------------------------------------------- #
 
+files=0
+firmware=0
 modules=0
 packages=0
 
 # Scan the command line.
 for arg; do
 	case "${arg}" in
-	(-mp|-pm)
-		modules=1
-		packages=1
+	(-f|--files)
+		files=1
 		;;
 	(-m|--modules)
 		modules=1
@@ -36,16 +37,21 @@ for arg; do
 	(-p|--packages)
 		packages=1
 		;;
+	(-w|--firmware)
+		firmware=1
+		;;
 	(*)
 		cat <<-EOF
 			Usage: ${0##*/} [options]
 
 			Options:
-			 	 --help	Show this informative message.
+			-f, --files	Show the matching files; default.
+			-w, --firmware	List external firmware installed by non-kernel packages.
+			    --help	Show this informative message.
 			-m, --modules	List modules installed by non-kernel packages.
-			-p, --packages	List installed packages whose contents include kernel modules.
-
-			If no options are specified, -m -p is assumed.
+			-p, --packages	Change -m and/or -w to only show the containing packages,
+			 		overriding -f if not specified. If combined with -f, show
+			 		packages on the same line as the files they contain.
 		EOF
 		[ "${arg}" = --help ]
 		exit
@@ -53,17 +59,40 @@ for arg; do
 	esac
 done
 
-[ ${modules} -ne 0 -o ${packages} -ne 0 ] || modules=1 packages=1
+[ ${files} -eq 0 -a ${packages} -eq 0 ] && files=1
 
 
 vdb_path=$(portageq vdb_path)
 
-find ${vdb_path} -mindepth 3 -maxdepth 3 -type f -name CONTENTS -exec \
-awk -v ichPkgPath=$((${#vdb_path} + 2)) \
-    -v bMods=${modules} \
-    -v bPkgs=${packages} '
-	$1 == "obj" && $2 ~ /\.ko$/ {
+find "${vdb_path}" -mindepth 3 -maxdepth 3 -type f -name CONTENTS -exec \
+awk -v cchVdbPath=$((${#vdb_path} + 2)) \
+	 -v sRoot="${ROOT}" \
+	 -v bFiles=${files} \
+	 -v bFw=${firmware} \
+	 -v bMods=${modules} \
+	 -v bPkgs=${packages} '
+	BEGIN {
+		FIRMWARE_TYPE = 0
+		MODULE_TYPE = 1
+		cchRoot = (sRoot ? length(sRoot) + 1 : 2)
+		sFwPath = "lib/firmware/"
+		cchFwPath = length(sFwPath)
+		cchModPath = length("lib/modules/")
+	}
+	$1 == "obj" {
+		if ($2 ~ /\.ko$/) {
+			if (!bMods)
+				next
+			iFileType = MODULE_TYPE
+		} else if (substr($2, cchRoot, cchFwPath) == sFwPath) {
+			if (!bFw)
+				next
+			iFileType = FIRMWARE_TYPE
+		} else
+			next
 		if (bPkgs) {
+			# Get the directory that contains this CONTENTS file, i.e. its
+			# package.
 			sDir = ARGV[ARGIND]
 			sDir = substr(sDir, 1, length(sDir) - 9)
 			# Cache the SLOTs in an array.
@@ -73,32 +102,51 @@ awk -v ichPkgPath=$((${#vdb_path} + 2)) \
 				close(sSlot)
 			}
 			sSlot = arrPkgSlots[sDir]
-			sPkg = substr(sDir, ichPkgPath)
+			# Get the package name and version by stripping the VDB path.
+			sPkg = substr(sDir, cchVdbPath)
 			# Replace the package version with its slot.
 			sub(/-[0-9].*$/, ":" sSlot, sPkg)
 		}
-		if (bMods) {
-			sMod = $2
-			# Make the module path relative to ${ROOT}/lib/modules/linux-*/ .
-			sub(/^.*\/lib\/modules\/[^\/]+\//, " ", sMod)
+		if (bFiles) {
+			# If displaying file names, we have to get the relative path of $2.
+			# Remove "${ROOT}/".
+			sFile = substr($2, cchRoot)
+			if (iFileType == FIRMWARE_TYPE)
+				# Remove "lib/firmware/", and add a leading space.
+				sFile = " " substr(sFile, cchFwPath + 1)
+			else if (iFileType == MODULE_TYPE) {
+				# Remove "lib/modules/".
+				sFile = substr(sFile, cchModPath + 1)
+				# Remove "linux-*/" and add a leading space.
+				sub(/^[^\/]+\//, " ", sFile)
+			}
+
 			if (bPkgs)
-				arrPkgMods[sPkg] = arrPkgMods[sPkg] sMod
-			else
-				sMods = sMods sMod
-		} else
-			arrPkgMods[sPkg] = 1
+				# Store packages and files.
+				arrFilesByPkg[sPkg] = arrFilesByPkg[sPkg] sFile
+			else if (bFiles)
+				# Store files only.
+				sFiles = sFiles sFile
+		} else if (bPkgs)
+			# Store packages only.
+			arrFilesByPkg[sPkg] = 1
 	}
 	END {
 		if (bPkgs)
-			for (sPkg in arrPkgMods)
-				if (bMods)
-					print sPkg arrPkgMods[sPkg]
+			for (sPkg in arrFilesByPkg)
+				if (bFiles)
+					# Print packages and files.
+					print sPkg arrFilesByPkg[sPkg]
 				else
+					# Print packages only.
 					print sPkg
-		else if (length(sMods)) {
-			sMods = substr(sMods, 2)
-			gsub(/ /, "\n", sMods)
-			print sMods
+		else if (bFiles && length(sFiles)) {
+			# Print files only.
+			# Delete the leading space.
+			sFiles = substr(sFiles, 2)
+			# One file per line.
+			gsub(/ /, "\n", sFiles)
+			print sFiles
 		}
 	}
 ' {} +
