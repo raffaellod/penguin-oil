@@ -369,7 +369,7 @@ if [ -n "${kg_initramfs}" ]; then
 	ebegin 'Adding out-of-tree firmware'
 	# Create the folder beforehand; it not needed, we'll delete it later.
 	kg_fwdir="${kg_work}lib/firmware"
-	mkdir "${kg_fwdir}"
+	mkdir -p "${kg_fwdir}"
 	for kg_extfw in $(env ROOT="${kg_root}" kernel-lsext -w -f); do
 		# If the firmware is in a subfolder, create it.
 		kg_exfwdir=${kg_extfw%/*}
