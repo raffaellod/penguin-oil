@@ -341,7 +341,7 @@ if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 		kg_modpkgs=$(kernel-lsext -m -p)
 		if [ -n "${kg_modpkgs}" ]; then
 			env KERNEL_DIR="${kg_src}" \
-				"${CROSS_COMPILE}emerge" -q1 --quiet-build ${kg_modpkgs} \
+				"${CROSS_COMPILE}emerge" -q1 --usepkg=n --quiet-build ${kg_modpkgs} \
 				>/dev/null
 			eend ${?} || exit
 		else
