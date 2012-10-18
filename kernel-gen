@@ -366,6 +366,8 @@ if [ -n "${kg_initramfs}" ]; then
 	ebegin 'Adding kernel modules'
 	kmake INSTALL_MOD_PATH="${kg_work}" modules_install >/dev/null
 	eend ${?} || exit
+	# TODO: more proper way of excluding modules from the initramfs.
+	rm -rf "${kg_work}"lib*/modules/*/kernel/sound
 
 	ebegin 'Adding out-of-tree firmware'
 	# Create the folder beforehand; it not needed, we'll delete it later.
