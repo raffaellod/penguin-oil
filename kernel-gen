@@ -57,6 +57,7 @@ kg_pkg=
 kg_rebuildmods=true
 kg_root="${p_root}"
 kg_src="${PWD}"
+unset KG_VERBOSE
 
 # Scan the command line.
 makeabs() {
@@ -68,10 +69,10 @@ for arg; do
 	# Discard this argument.
 	shift
 	case "${arg}" in
-	(--arch=?*)
+	(-a|--arch=?*)
 		kg_arch="${arg#*=}"
 		;;
-	(--initramfs=?*)
+	(-i|--initramfs=?*)
 		kg_initramfs="${arg#*=}"
 		;;
 	(--initramfs-debug)
@@ -86,16 +87,16 @@ for arg; do
 	(--no-rebuildmods)
 		kg_rebuildmods=false
 		;;
-	(--package=?*)
+	(-p|--package=?*)
 		kg_pkg="${arg#*=}"
 		makeabs kg_pkg
 		;;
-	(--root=?*)
+	(-r|--root=?*)
 		kg_root="${arg#*=}"
 		makeabs kg_root
 		kg_root="${kg_root%/}/"
 		;;
-	(--source=?*)
+	(-s|--source=?*)
 		kg_src="${arg#*=}"
 		if [ ! -d "${kg_src}" ]; then
 			eerror 'Invalid kernel source directory.'
@@ -103,29 +104,33 @@ for arg; do
 		fi
 		makeabs kg_src
 		;;
+	(-v|--verbose)
+		export KG_VERBOSE=1
+		;;
 	(--)
 		break
 		;;
 	(*)	cat <<-EOF
 		Usage: ${0##*/} [options]
 		Possible options:
-		--arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
+		-a, --arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
 		 			to Portage's ARCH variable.
-		--initramfs=DIR		Use DIR as an initramfs source directory. Defaults to
+		-i, --initramfs=DIR	Use DIR as an initramfs source directory. Defaults to
 		 			\`\${ROOT}/usr/src/initramfs'.
-		--initramfs-debug	Dumps the contents of the generated initramfs before
+		    --initramfs-debug	Dumps the contents of the generated initramfs before
 		 			packaging it.
-		--help			Show this informative message.
-		--no-initramfs		Ignore the initramfs directory, even if existent.
-		--no-install		Don't install the compiled kernel; also ignores --root
+		    --help		Show this informative message and quit.
+		    --no-initramfs	Ignore the initramfs directory, even if existent.
+		    --no-install	Don't install the compiled kernel; also ignores --root
 		 			and --no-rebuildmods.
-		--no-rebuildmods	Don't rebuild packages providing external modules;
+		    --no-rebuildmods	Don't rebuild packages providing external modules;
 		 			delete the module files instead.
-		--package=FILE		Copy the kernel to a compressed tar archive named FILE.
-		--root=DIR		Use DIR as root directory. Defaults to Portage's
+		-p, --package=FILE	Copy the kernel to a compressed tar archive named FILE.
+		-r, --root=DIR		Use DIR as root directory. Defaults to Portage's
 		 			\${ROOT}.
-		--source=DIR		Select DIR as the kernel source directory. Defaults to
+		-s, --source=DIR	Select DIR as the kernel source directory. Defaults to
 		 			the current directory or \`\${ROOT}/usr/src/linux'.
+		-v, --verbose		Enable extended output (mainly from the package manager)
 		EOF
 		[ "${arg}" = '--help' ]
 		exit
