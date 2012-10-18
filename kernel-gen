@@ -141,6 +141,27 @@ if ! ${kg_install} && [ -z "${kg_pkg}" ]; then
 	exit 1
 fi
 
+# Determine the ARCH and the generated kernel file name.
+kg_src_img=
+case ${kg_arch} in
+(x86)
+	ARCH=i386
+	kg_src_img=arch/x86/boot/bzImage
+	;;
+(amd64)
+	ARCH=x86_64
+	kg_src_img=arch/x86/boot/bzImage
+	;;
+(ppc)
+	ARCH=powerpc
+	;;
+(*)
+	eerror "Unsupported ARCH: ${kg_arch}"
+	exit 1
+	;;
+esac
+export ARCH
+
 kmake() {
 	make -C "${kg_src}" ${kg_makeopts} "${@}"
 }
@@ -205,26 +226,6 @@ kg_kernel_compr=$(awk '
 	}
 ' <"${kg_src_cfg}")
 
-# Determine the ARCH and the generated kernel file name.
-kg_src_img=
-case ${kg_arch} in
-(x86)
-	ARCH=i386
-	kg_src_img=arch/x86/boot/bzImage
-	;;
-(amd64)
-	ARCH=x86_64
-	kg_src_img=arch/x86/boot/bzImage
-	;;
-(ppc)
-	ARCH=powerpc
-	;;
-(*)
-	eerror "Unsupported ARCH: ${kg_arch}"
-	exit 1
-	;;
-esac
-export ARCH
 # If default, or if not compressed, just use the plain image.
 [ -z "${kg_src_img}" -o -z "${kg_kernel_compr}" ] && kg_src_img=vmlinux
 kg_src_img="${kg_src}${kg_src_img}"
@@ -388,7 +389,7 @@ if [ -n "${kg_initramfs}" ]; then
 		# The initramfs has a build script; invoke it.
 		einfo 'Invoking initramfs custom build script'
 		eindent
-		# ARCH and CROSS_COMPILE are exported, too.
+		# ARCH and CROSS_COMPILE are already exported.
 		env ROOT="${kg_root}" KERNEL_DIR="${kg_src}" "${kg_initramfs}/build" ||
 			exit
 		eoutdent
