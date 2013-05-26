@@ -336,6 +336,11 @@ if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 	einfo "Finished building linux-${kg_kv}"
 	eend ${retval} || exit
 
+	# kmake won't touch the kernel image if .config doesn't require so, which
+	# means that the above test would always cause this if branch to be entered.
+	# A way to avoid this is to touch the kernel image now.
+	touch -m "${kg_src_img}"
+
 	if ${kg_rebuildmods}; then
 		ebegin 'Rebuilding kernel module packages'
 		kg_modpkgs=$(kernel-lsext -m -p)
