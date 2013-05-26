@@ -388,10 +388,9 @@ if [ -n "${kg_initramfs}" ]; then
 		cp -a "${kg_root}lib/firmware/${kg_extfw}" "${kg_fwdir}/${kg_extfw}" ||
 			eend ${?} || exit
 	done
-	# If /lib/firmware is still empty, delete it.
-	[ "$(echo "${kg_fwdir}"/*)" != "${kg_fwdir}/*" ] ||
-		rmdir "${kg_fwdir}"
 	eend ${?} || exit
+	# If /lib/firmware is still empty, delete it.
+	rmdir "${kg_fwdir}" 2>/dev/null
 
 	if [ -f "${kg_initramfs}/build" -a -x "${kg_initramfs}/build" ]; then
 		# The initramfs has a build script; invoke it.
