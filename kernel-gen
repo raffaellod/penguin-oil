@@ -160,6 +160,7 @@ case ${kg_arch} in
 	;;
 esac
 export ARCH
+export PORTAGE_ARCH=${kg_arch}
 
 kmake() {
 	make -C "${kg_src}" ${kg_makeopts} "${@}"
@@ -396,7 +397,7 @@ if [ -n "${kg_initramfs}" ]; then
 		# The initramfs has a build script; invoke it.
 		einfo 'Invoking initramfs custom build script'
 		eindent
-		# ARCH and CROSS_COMPILE are already exported.
+		# ARCH, PORTAGE_ARCH and CROSS_COMPILE are already exported.
 		env ROOT="${kg_root}" KERNEL_DIR="${kg_src}" "${kg_initramfs}/build" ||
 			exit
 		eoutdent
