@@ -1,24 +1,23 @@
 #!/bin/sh
 # -*- coding: utf-8; mode: sh; tab-width: 3 -*-
-#--------------------------------------------------------------------------- #
-# kernel-tools																					  #
-# Copyright 2012 Raffaello D. Di Napoli												  #
-# -------------------------------------------------------------------------- #
-# This file is part of kernel-tools.													  #
-#																									  #
-# kernel-tools is free software: you can redistribute it and/or modify it	  #
-# under the terms of the GNU General Public License as published by the Free #
-# Software Foundation, either version 3 of the License, or (at your option)  #
-# any later version.																			  #
-#																									  #
-# kernel-tools is distributed in the hope that it will be useful, but		  #
-# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY #
-# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License	  #
-# for more details.																			  #
-#																									  #
-# You should have received a copy of the GNU General Public License along	  #
-# with kernel-tools. If not, see <http://www.gnu.org/licenses/>.				  #
-# -------------------------------------------------------------------------- #
+#-------------------------------------------------------------------------------
+# kernel-tools
+# Copyright 2012 Raffaello D. Di Napoli
+#-------------------------------------------------------------------------------
+# This file is part of kernel-tools.
+#
+# kernel-tools is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# kernel-tools is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# kernel-tools. If not, see <http://www.gnu.org/licenses/>.
+#-------------------------------------------------------------------------------
 
 files=0
 firmware=0
@@ -91,8 +90,7 @@ awk -v cchVdbPath=$((${#vdb_path} + 2)) \
 		} else
 			next
 		if (bPkgs) {
-			# Get the directory that contains this CONTENTS file, i.e. its
-			# package.
+			# Get the directory that contains this CONTENTS file, i.e. its package.
 			sDir = ARGV[ARGIND]
 			sDir = substr(sDir, 1, length(sDir) - 9)
 			# Cache the SLOTs in an array.

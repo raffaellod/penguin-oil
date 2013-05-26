@@ -1,24 +1,23 @@
 #!/bin/sh
 # -*- coding: utf-8; mode: sh; tab-width: 3 -*-
-#--------------------------------------------------------------------------- #
-# kernel-tools																					  #
-# Copyright 2012 Raffaello D. Di Napoli												  #
-# -------------------------------------------------------------------------- #
-# This file is part of kernel-tools.													  #
-#																									  #
-# kernel-tools is free software: you can redistribute it and/or modify it	  #
-# under the terms of the GNU General Public License as published by the Free #
-# Software Foundation, either version 3 of the License, or (at your option)  #
-# any later version.																			  #
-#																									  #
-# kernel-tools is distributed in the hope that it will be useful, but		  #
-# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY #
-# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License	  #
-# for more details.																			  #
-#																									  #
-# You should have received a copy of the GNU General Public License along	  #
-# with kernel-tools. If not, see <http://www.gnu.org/licenses/>.				  #
-# -------------------------------------------------------------------------- #
+#-------------------------------------------------------------------------------
+# kernel-tools
+# Copyright 2012-2013 Raffaello D. Di Napoli
+#-------------------------------------------------------------------------------
+# This file is part of kernel-tools.
+#
+# kernel-tools is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# kernel-tools is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# kernel-tools. If not, see <http://www.gnu.org/licenses/>.
+# ------------------------------------------------------------------------------
 
 
 # Retrieve Portage environment.
@@ -34,12 +33,7 @@ getportageenv() {
 	done
 }
 eval getportageenv $(
-	portageq envvar \
-		ARCH \
-		MAKEOPTS \
-		ROOT \
-		PORTAGE_TMPDIR \
-		FEATURES |
+	portageq envvar ARCH MAKEOPTS ROOT PORTAGE_TMPDIR FEATURES |
 	sed -e 's/^.*$/"&"/'
 )
 
@@ -202,8 +196,8 @@ kg_src="${kg_src%/}/"
 kg_src_cfg="${kg_src}.config"
 kg_src_sysmap="${kg_src}System.map"
 
-# Check that the kernel has already been configured. One of these lines must
-# be near the top of the .config file:
+# Check that the kernel has already been configured. One of these lines must be
+# near the top of .config:
 #   Linux/i386 2.6.37 Kernel Configuration
 #   Linux kernel version: 2.6.34
 if awk -v sKV="${kg_kv}" '
@@ -347,7 +341,8 @@ if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
 		kg_modpkgs=$(kernel-lsext -m -p)
 		if [ -n "${kg_modpkgs}" ]; then
 			env KERNEL_DIR="${kg_src}" \
-				"${CROSS_COMPILE}emerge" -q1 --usepkg=n --quiet-build ${kg_modpkgs} \
+				"${CROSS_COMPILE}emerge" -q1 --usepkg=n --quiet-build \
+				${kg_modpkgs} \
 				>/dev/null
 			eend ${?} || exit
 		else
@@ -381,11 +376,12 @@ if [ -n "${kg_initramfs}" ]; then
 	for kg_extfw in $(env ROOT="${kg_root}" kernel-lsext -w -f); do
 		# If the firmware is in a subfolder, create it.
 		kg_exfwdir=${kg_extfw%/*}
-		[ ${kg_exfwdir} != ${kg_extfw} ] &&
+		if [ ${kg_exfwdir} != ${kg_extfw} ]; then
 			mkdir -p "${kg_fwdir}/${kg_exfwdir}"
+		fi
 		# Copy the firmware file.
-		cp -a "${kg_root}lib/firmware/${kg_extfw}" \
-				"${kg_fwdir}/${kg_extfw}" || eend ${?} || exit
+		cp -a "${kg_root}lib/firmware/${kg_extfw}" "${kg_fwdir}/${kg_extfw}" ||
+			eend ${?} || exit
 	done
 	# If /lib/firmware is still empty, delete it.
 	[ "$(echo "${kg_fwdir}"/*)" != "${kg_fwdir}/*" ] ||
@@ -503,11 +499,8 @@ if ${kg_install}; then
 		kg_kernel_size=$(filesize "${kg_dst_img}")
 		kg_mods_size=$(dirsize "${kg_dst_mods}")
 		kg_initramfs_size=$(filesize "${kg_dst_initramfs}")
-		rm -f \
-			"${kg_dst_img}" \
-			"${kg_dst_initramfs%.*}".* \
-			"${kg_dst_cfg}" \
-			"${kg_dst_sysmap}"
+		rm -f "${kg_dst_img}" "${kg_dst_initramfs%.*}".* \
+			"${kg_dst_cfg}" "${kg_dst_sysmap}"
 		# Remove every in-tree kernel module, leaving only the out-of-tree ones.
 		find "${kg_dst_mods}" $(
 			env ROOT="${kg_root}" kernel-lsext -m -f |
