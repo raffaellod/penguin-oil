@@ -18,7 +18,10 @@
 # You should have received a copy of the GNU General Public License along with
 # kernel-tools. If not, see <http://www.gnu.org/licenses/>.
 # ------------------------------------------------------------------------------
-
+#
+# Generates a kernel binary+modules and/or tarball, optionally generating an
+# initramfs from a compatible self-contained initramfs-building system (such as
+# tinytium).
 
 # Retrieve Portage environment.
 getportageenv() {

@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License along with
 # kernel-tools. If not, see <http://www.gnu.org/licenses/>.
 #-------------------------------------------------------------------------------
+#
+# Lists external firmware and/or modules for Linux along with the packages that
+# installed them.
 
 files=0
 firmware=0
