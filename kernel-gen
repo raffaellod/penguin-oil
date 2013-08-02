@@ -23,6 +23,7 @@
 # initramfs from a compatible self-contained initramfs-building system (such as
 # tinytium).
 
+
 # Retrieve Portage environment.
 getportageenv() {
 	p_arch=${1}

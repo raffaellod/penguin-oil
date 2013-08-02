@@ -22,6 +22,7 @@
 # Lists external firmware and/or modules for Linux along with the packages that
 # installed them.
 
+
 files=0
 firmware=0
 modules=0
