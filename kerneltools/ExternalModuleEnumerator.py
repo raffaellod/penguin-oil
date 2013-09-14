@@ -53,6 +53,7 @@ class ExternalModuleEnumerator(object):
 		self._m_bPackages = bPackages
 
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
+		self._m_sFirmwarePath = 'lib/firmware/'
 
 		with subprocess.Popen(
 			['portageq', 'vdb_path'],
@@ -86,84 +87,46 @@ class ExternalModuleEnumerator(object):
 			Path to the package in the VDB.
 		"""
 
-		FIRMWARE_TYPE = 0
-		MODULE_TYPE = 1
-
-		sFirmwarePath = 'lib/firmware/'
-		if self._m_bPackages:
-			dictFilesByPackage = dict()
-			dictPackageSlots = dict()
-		else:
-			sFiles = ''
-
+		# Analyze the contents of the package, building a list of files of our interest.
+		listFiles = list()
 		with open(os.path.join(sPackagePath, 'CONTENTS'), 'r') as fileContents:
 			for sLine in fileContents:
-				match = re.match(
-					'^(?P<type>\S+)\s+(?P<path>\S+)\s+(?P<hash>\S+)\s+(?P<size>\d+)',
-					sLine
-				)
-				if not match or match.group('type') != 'obj':
-					# Not a file.
+				# Parse the line.
+				match = re.match('^obj\s+(?P<path>\S+)\s+(?P<hash>\S+)\s+(?P<size>\d+)', sLine)
+				if not match:
+					# Not a file (“obj”).
 					continue
-
 				# Remove the root.
 				sFilePath = match.group('path')[self._m_cchRoot:]
 				if self._m_bModules and sFilePath.endswith('.ko'):
-					iFileType = MODULE_TYPE
-				elif self._m_bFirmware and sFilePath.startswith(sFirmwarePath):
-					iFileType = FIRMWARE_TYPE
+					# Remove “lib/modules/linux-*/”.
+					sFilePath = re.sub('^lib/modules/[^\/]+\/', '', sFilePath)
+				elif self._m_bFirmware and sFilePath.startswith(self._m_sFirmwarePath):
+					# Remove “lib/firmware/”.
+					sFilePath = sFilePath[len(self._m_sFirmwarePath):]
 				else:
 					# Not a file we’re interested in.
 					continue
+				# Add this file to the list.
+				listFiles.append(sFilePath)
 
-				if self._m_bPackages:
-					# If the slot is not in the cache, read it now.
-					if sPackagePath not in dictPackageSlots:
-						with open(os.path.join(sPackagePath, 'SLOT'), 'r') as fileSlot:
-							dictPackageSlots[sPackagePath] = fileSlot.read().strip()
-
-					# Replace the package version with its slot.
-					sPackage = re.sub('-[0-9].*$', ':' + dictPackageSlots[sPackagePath], sPackage)
-
+		if listFiles:
+			# Replace the package version with its slot.
+			if self._m_bPackages:
+				# Get the package slot.
+				with open(os.path.join(sPackagePath, 'SLOT'), 'r') as fileSlot:
+					sPackageSlot = fileSlot.read().strip()
+				sPackage = re.sub('-[0-9].*$', ':' + sPackageSlot, sPackage)
+			if self._m_bPackages:
 				if self._m_bFiles:
-					# If displaying file names, we want to make the path relative to the common parent
-					# folder for files of that type.
-
-					if iFileType == FIRMWARE_TYPE:
-						# Remove “lib/firmware/”.
-						sFilePath = sFilePath[len(sFirmwarePath):]
-					elif iFileType == MODULE_TYPE:
-						# Remove “lib/modules/linux-*/”.
-						sFilePath = re.sub('^lib/modules/[^\/]+\/', '', sFilePath)
-
-					if self._m_bPackages:
-						# Store packages and files.
-						dictFilesByPackage[sPackage] = dictFilesByPackage.get(sPackage, '') + ' ' + \
-							sFilePath
-					elif self._m_bFiles:
-						# Store files only.
-						sFiles += ' ' + sFilePath
-
-				elif self._m_bPackages:
-					# Store packages only. Since we don’t care about what’s associated to the key, just
-					# store a True.
-					dictFilesByPackage[sPackage] = True
-
-		if self._m_bPackages:
-			for sPackage in dictFilesByPackage:
-				if self._m_bFiles:
-					# Print packages and files.
-					sys.stdout.write(sPackage + dictFilesByPackage[sPackage] + '\n')
+					# Output the package and its files.
+					sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
 				else:
-					# Print packages only.
+					# Output packages only.
 					sys.stdout.write(sPackage + '\n')
-		elif self._m_bFiles and sFiles:
-			# Print files only.
-			# Delete the leading space.
-			sFiles = sFiles[1:]
-			# One file per line.
-			sFiles = re.sub(' ', '\n', sFiles)
-			sys.stdout.write(sFiles + '\n')
+			elif self._m_bFiles:
+				# Output files only, one per line.
+				sys.stdout.write('\n'.join(listFiles) + '\n')
 
 
 
