@@ -52,6 +52,7 @@ class ExternalModuleEnumerator(object):
 		self._m_bModules = bModules
 		self._m_bPackages = bPackages
 
+		self._m_reContentsLine = re.compile('^obj\s+(?P<path>\S+)\s+')
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
 		self._m_sFirmwarePath = 'lib/firmware/'
 
@@ -92,7 +93,7 @@ class ExternalModuleEnumerator(object):
 		with open(os.path.join(sPackagePath, 'CONTENTS'), 'r') as fileContents:
 			for sLine in fileContents:
 				# Parse the line.
-				match = re.match('^obj\s+(?P<path>\S+)\s+(?P<hash>\S+)\s+(?P<size>\d+)', sLine)
+				match = self._m_reContentsLine.match(sLine)
 				if not match:
 					# Not a file (“obj”).
 					continue
