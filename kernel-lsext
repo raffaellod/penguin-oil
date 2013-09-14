@@ -30,7 +30,7 @@ if __name__ == '__main__':
 	import sys
 	# Get the full path of this script.
 	sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
-	# Setup the PATH environment variable to load quearl_inst.
+	# Setup the PATH environment variable to load kerneltools.
 	sys.path.append(sDir)
 	import kerneltools
 
