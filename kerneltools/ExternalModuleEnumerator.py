@@ -52,7 +52,7 @@ class ExternalModuleEnumerator(object):
 		self._m_bModules = bModules
 		self._m_bPackages = bPackages
 
-		self._m_reContentsLine = re.compile('^obj\s+(?P<path>\S+)\s+')
+		self._m_reContentsLine = re.compile("""^obj\s+(?P<path>\S+)\s+""")
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
 		self._m_sFirmwarePath = 'lib/firmware/'
 
@@ -101,7 +101,7 @@ class ExternalModuleEnumerator(object):
 				sFilePath = match.group('path')[self._m_cchRoot:]
 				if self._m_bModules and sFilePath.endswith('.ko'):
 					# Remove “lib/modules/linux-*/”.
-					sFilePath = re.sub('^lib/modules/[^\/]+\/', '', sFilePath)
+					sFilePath = re.sub('^lib/modules/[^/]+/', '', sFilePath)
 				elif self._m_bFirmware and sFilePath.startswith(self._m_sFirmwarePath):
 					# Remove “lib/firmware/”.
 					sFilePath = sFilePath[len(self._m_sFirmwarePath):]
