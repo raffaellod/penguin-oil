@@ -52,7 +52,7 @@ class ExternalModuleEnumerator(object):
 		self._m_bModules = bModules
 		self._m_bPackages = bPackages
 
-		self._m_reContentsLine = re.compile("""^obj\s+(?P<path>\S+)\s+""")
+		self._m_reContentsLine = re.compile('^obj\s+(?P<path>\S+)\s+')
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
 		self._m_sFirmwarePath = 'lib/firmware/'
 
