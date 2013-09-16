@@ -56,12 +56,10 @@ class ExternalModuleEnumerator(object):
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
 		self._m_sFirmwarePath = 'lib/firmware/'
 
-		with subprocess.Popen(
+		self._m_sVdbPath = subprocess.check_output(
 			['portageq', 'vdb_path'],
-			stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
-		) as procPortageQ:
-			self._m_sVdbPath = procPortageQ.communicate()[0].rstrip()
-			procPortageQ.wait()
+			stderr = sys.stderr, universal_newlines = True
+		).rstrip()
 
 
 	def enum(self):
