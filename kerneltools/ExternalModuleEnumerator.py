@@ -61,6 +61,7 @@ class ExternalModuleEnumerator(object):
 			stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
 		) as procPortageQ:
 			self._m_sVdbPath = procPortageQ.communicate()[0].rstrip()
+			procPortageQ.wait()
 
 
 	def enum(self):
