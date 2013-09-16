@@ -58,7 +58,7 @@ class ExternalModuleEnumerator(object):
 
 		with subprocess.Popen(
 			['portageq', 'vdb_path'],
-			stdin = None, stdout = subprocess.PIPE, universal_newlines = True
+			stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
 		) as procPortageQ:
 			self._m_sVdbPath = procPortageQ.communicate()[0].rstrip()
 
