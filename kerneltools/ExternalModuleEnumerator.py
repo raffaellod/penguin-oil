@@ -52,7 +52,7 @@ class ExternalModuleEnumerator(object):
 		self._m_bModules = bModules
 		self._m_bPackages = bPackages
 
-		self._m_reContentsLine = re.compile('^obj\s+(?P<path>\S+)\s+')
+		self._m_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
 		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
 		self._m_sFirmwarePath = 'lib/firmware/'
 
@@ -102,7 +102,7 @@ class ExternalModuleEnumerator(object):
 				sFilePath = match.group('path')[self._m_cchRoot:]
 				if self._m_bModules and sFilePath.endswith('.ko'):
 					# Remove “lib/modules/linux-*/”.
-					sFilePath = re.sub('^lib/modules/[^/]+/', '', sFilePath)
+					sFilePath = re.sub(r'^lib/modules/[^/]+/', '', sFilePath)
 				elif self._m_bFirmware and sFilePath.startswith(self._m_sFirmwarePath):
 					# Remove “lib/firmware/”.
 					sFilePath = sFilePath[len(self._m_sFirmwarePath):]
@@ -118,7 +118,7 @@ class ExternalModuleEnumerator(object):
 				# Get the package slot.
 				with open(os.path.join(sPackagePath, 'SLOT'), 'r') as fileSlot:
 					sPackageSlot = fileSlot.read().strip()
-				sPackage = re.sub('-[0-9].*$', ':' + sPackageSlot, sPackage)
+				sPackage = re.sub(r'-[0-9].*$', ':' + sPackageSlot, sPackage)
 			if self._m_bPackages:
 				if self._m_bFiles:
 					# Output the package and its files.
