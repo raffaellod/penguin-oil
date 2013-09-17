@@ -440,7 +440,8 @@ class Generator(object):
 			else:
 				# No build script; just copy every file.
 				self.einfo('Adding source files ...\n')
-#				cp -a self._m_sIrfSourcePath/'*' sIrfWorkDir
+				for sIrfFile in os.listdir(self._m_sIrfSourcePath):
+					shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
 			if self._m_bIrfDebug:
 				sIrfDumpFileName = os.path.join(
