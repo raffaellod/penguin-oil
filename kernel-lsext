@@ -68,16 +68,20 @@ if __name__ == '__main__':
 			else:
 				sys.exit(1)
 
-	if not bFiles and not bPackages:
-		bFiles = True
-
-	eme = kerneltools.ExternalModuleEnumerator(
-		bFiles = bFiles,
-		bFirmware = bFirmware,
-		bModules = bModules,
-		bPackages = bPackages
-	)
-	eme.enum()
+	eme = kerneltools.ExternalModuleEnumerator(bFirmware = bFirmware, bModules = bModules)
+	if bPackages:
+		if bFiles:
+			for sPackage, listFiles in eme.packages_and_files():
+				# Output the package and its files.
+				sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
+		else:
+			for sPackage, listFiles in eme.packages_and_files():
+				# Output packages only.
+				sys.stdout.write(sPackage + '\n')
+	else:
+		for sFilePath in eme.files():
+			# Output files only, one per line.
+			sys.stdout.write(sFilePath + '\n')
 
 	sys.exit(0)
 
