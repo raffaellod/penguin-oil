@@ -180,6 +180,47 @@ class Generator(object):
 		return cbModules
 
 
+	def load_kernel_config(self, sConfigPath, sKernelVersion):
+		"""TODO: comment"""
+
+		dictKernelConfig = {}
+		with open(sConfigPath, 'r') as fileConfig:
+			iLine = 1
+			bConfigVersionFound = False
+			for sLine in fileConfig:
+				if not bConfigVersionFound:
+					# In the first 5 lines, expect to find a line like these, indicating that that the
+					# kernel has already been configured:
+					#    Linux/i386 2.6.37 Kernel Configuration
+					#    Linux kernel version: 2.6.34
+					if iLine < 5:
+						iLine += 1
+						match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration', sLine)
+						if not match:
+							match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
+						if match:
+							bConfigVersionFound = match.group('version') == sKernelVersion
+							continue
+					else:
+						self.eerror('This kernel needs to be configured first.\n')
+						self.eerror('Try:\n')
+						self.eerror("	make -C '{}' menuconfig\n".format(self._m_sSourcePath))
+				else:
+					match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
+					if match:
+						sValue = match.group('value')
+						if sValue == 'y':
+							oValue = True
+						elif sValue == 'n':
+							oValue = False
+						elif len(sValue) >= 2 and sValue[0] == '"' and sValue[:-1] == '"':
+							oValue = sValue[1:-1]
+						else:
+							oValue = sValue
+						dictKernelConfig[match.group('name')] = oValue
+		return dictKernelConfig
+
+
 	def execute(self):
 		"""TODO: comment"""
 
@@ -229,41 +270,7 @@ class Generator(object):
 		dictEnvWithRoot = os.environ.copy()
 		dictEnvWithRoot['ROOT'] = self._m_sRoot
 
-		dictKernelConfig = {}
-		with open(self._m_sSrcConfigPath, 'r') as fileConfig:
-			iLine = 1
-			bConfigVersionFound = False
-			for sLine in fileConfig:
-				if not bConfigVersionFound:
-					# In the first 5 lines, expect to find a line like these, indicating that that the
-					# kernel has already been configured:
-					#    Linux/i386 2.6.37 Kernel Configuration
-					#    Linux kernel version: 2.6.34
-					if iLine < 5:
-						iLine += 1
-						match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration', sLine)
-						if not match:
-							match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
-						if match:
-							bConfigVersionFound = match.group('version') == self._m_sKernelVersion
-							continue
-					else:
-						self.eerror('This kernel needs to be configured first.\n')
-						self.eerror('Try:\n')
-						self.eerror("	make -C '{}' menuconfig\n".format(self._m_sSourcePath))
-				else:
-					match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
-					if match:
-						sValue = match.group('value')
-						if sValue == 'y':
-							oValue = True
-						elif sValue == 'n':
-							oValue = False
-						elif len(sValue) >= 2 and sValue[0] == '"' and sValue[:-1] == '"':
-							oValue = sValue[1:-1]
-						else:
-							oValue = sValue
-						dictKernelConfig[match.group('name')] = oValue
+		dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, self._m_sKernelVersion)
 
 		# Get the kernel image compression method from the config file.
 		sKernelCompressor = None
