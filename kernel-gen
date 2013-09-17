@@ -1,618 +1,748 @@
-#!/bin/sh
-# -*- coding: utf-8; mode: sh; tab-width: 3 -*-
-#-------------------------------------------------------------------------------
+#!/usr/bin/python
+# -*- coding: utf-8; mode: python; tab-width: 3 -*-
+#---------------------------------------------------------------------------------------------------
 # kernel-tools
 # Copyright 2012-2013 Raffaello D. Di Napoli
-#-------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
 # This file is part of kernel-tools.
 #
-# kernel-tools is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation, either version 3 of the License, or (at your option) any later
-# version.
+# kernel-tools is free software: you can redistribute it and/or modify it under the terms of the GNU
+# General Public License as published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
 #
-# kernel-tools is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# kernel-tools is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along with
-# kernel-tools. If not, see <http://www.gnu.org/licenses/>.
-# ------------------------------------------------------------------------------
-#
-# Generates a kernel binary+modules and/or tarball, optionally generating an
-# initramfs from a compatible self-contained initramfs-building system (such as
-# tinytium).
+# You should have received a copy of the GNU General Public License along with kernel-tools. If not,
+# see <http://www.gnu.org/licenses/>.
+#---------------------------------------------------------------------------------------------------
+
+"""Generates a kernel binary+modules and/or tarball, optionally generating an initramfs from a
+compatible self-contained initramfs-building system (such as tinytium).
+"""
+
+import glob
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
 
 
-# Retrieve Portage environment.
-getportageenv() {
-	p_arch=${1}
-	p_makeopts="${2}"
-	p_root="${3}"
-	p_tmpdir="${4}"
-	p_distcc=false
-	local feature
-	for feature in ${5}; do
-		[ ${feature} = distcc ] && p_distcc=true
-	done
-}
-eval getportageenv $(
-	portageq envvar ARCH MAKEOPTS ROOT PORTAGE_TMPDIR FEATURES |
-	sed -e 's/^.*$/"&"/'
-)
 
-# Source Gentoo initscript helpers.
-. "${p_root}etc/init.d/functions.sh"
+####################################################################################################
+# Generator
 
-# Set option defaults.
-kg_arch="${p_arch}"
-kg_distcc=${p_distcc}
-unset kg_initramfs
-kg_initramfs_debug=false
-kg_install=true
-kg_makeopts="${p_makeopts}"
-kg_pkg=
-kg_rebuildmods=true
-kg_root="${p_root}"
-kg_src="${PWD}"
-unset KG_VERBOSE
+class Generator(object):
+	"""TODO: comment"""
 
-# Scan the command line.
-makeabs() {
-	local s
-	eval s=\"\${1}\"
-	[ "${s#/}" = "${s}" ] && eval ${1}=\"\${PWD}\${s}\"
-}
-for arg; do
-	# Discard this argument.
-	shift
-	case "${arg}" in
-	(-a|--arch=?*)
-		kg_arch="${arg#*=}"
-		;;
-	(-i|--initramfs=?*)
-		kg_initramfs="${arg#*=}"
-		;;
-	(--initramfs-debug)
-		kg_initramfs_debug=true
-		;;
-	(--no-initramfs)
-		kg_initramfs=
-		;;
-	(--no-install)
-		kg_install=false
-		;;
-	(--no-rebuildmods)
-		kg_rebuildmods=false
-		;;
-	(-p|--package=?*)
-		kg_pkg="${arg#*=}"
-		makeabs kg_pkg
-		;;
-	(-r|--root=?*)
-		kg_root="${arg#*=}"
-		makeabs kg_root
-		kg_root="${kg_root%/}/"
-		;;
-	(-s|--source=?*)
-		kg_src="${arg#*=}"
-		if [ ! -d "${kg_src}" ]; then
-			eerror 'Invalid kernel source directory.'
-			exit 1
-		fi
-		makeabs kg_src
-		;;
-	(-v|--verbose)
-		export KG_VERBOSE=1
-		;;
-	(--)
-		break
-		;;
-	(*)	cat <<-EOF
-		Usage: ${0##*/} [options]
-		Possible options:
-		-a, --arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
-		 			to Portage's ARCH variable.
-		-i, --initramfs=DIR	Use DIR as an initramfs source directory. Defaults to
-		 			\`\${ROOT}/usr/src/initramfs'.
-		    --initramfs-debug	Dumps the contents of the generated initramfs before
-		 			packaging it.
-		    --help		Show this informative message and quit.
-		    --no-initramfs	Ignore the initramfs directory, even if existent.
-		    --no-install	Don't install the compiled kernel; also ignores --root
-		 			and --no-rebuildmods.
-		    --no-rebuildmods	Don't rebuild packages providing external modules;
-		 			delete the module files instead.
-		-p, --package=FILE	Copy the kernel to a compressed tar archive named FILE.
-		-r, --root=DIR		Use DIR as root directory. Defaults to Portage's
-		 			\${ROOT}.
-		-s, --source=DIR	Select DIR as the kernel source directory. Defaults to
-		 			the current directory or \`\${ROOT}/usr/src/linux'.
-		-v, --verbose		Enable extended output (mainly from the package manager)
-		EOF
-		[ "${arg}" = '--help' ]
-		exit
-		;;
-	esac
-done
-kg_src="${kg_src%/}/"
+	def __init__(
+		self, sPArch, sIrfSourcePath, bIrfDebug, bInstall, sPackageFileName, bRebuildModules, sRoot,
+		sSourcePath
+	):
+		"""Constructor. TODO: comment"""
 
-# Check for conflicting/improper arguments.
-if ! ${kg_install} && [ -z "${kg_pkg}" ]; then
-	eerror 'Option --no-install cannot be used without --package.'
-	eerror 'You must choose to install the new kernel, package it, or both.'
-	exit 1
-fi
+		with subprocess.Popen(
+			['portageq', 'envvar', 'ARCH', 'MAKEOPTS', 'ROOT', 'PORTAGE_TMPDIR', 'FEATURES'],
+			stdout = subprocess.PIPE, universal_newlines = True
+		) as procPortageQ:
+			sPDefArch = procPortageQ.stdout.readline().rstrip()
+			self._m_listMakeOpts = shlex.split(procPortageQ.stdout.readline().rstrip())
+			self._m_PRoot = procPortageQ.stdout.readline().rstrip()
+			self._m_PTmpDir = procPortageQ.stdout.readline().rstrip()
+			sFeatures = procPortageQ.stdout.readline()
+			# Eat any remaining output, then wait for termination.
+			procPortageQ.communicate()
 
-# Determine the ARCH and the generated kernel file name.
-kg_src_img=
-case ${kg_arch} in
-(x86)
-	ARCH=i386
-	kg_src_img=arch/x86/boot/bzImage
-	;;
-(amd64)
-	ARCH=x86_64
-	kg_src_img=arch/x86/boot/bzImage
-	;;
-(ppc)
-	ARCH=powerpc
-	;;
-(*)
-	eerror "Unsupported ARCH: ${kg_arch}"
-	exit 1
-	;;
-esac
-export ARCH
-export PORTAGE_ARCH=${kg_arch}
+		if sPArch == None:
+			self._m_sPArch = sPDefArch
+		else:
+			self._m_sPArch = sPArch
+		self._m_sIrfComprExt = ''
+		self._m_bIrfDebug = bIrfDebug
+		self._m_sIrfSourcePath = sIrfSourcePath
+		self._m_bInstall = bInstall
+		self._m_sPackageFileName = sPackageFileName
+		self._m_bRebuildModules = bRebuildModules
+		self._m_bUseDistCC = re.search(r'\bdistcc\b', sFeatures) != None
+		if sRoot == None:
+			self._m_sRoot = self._m_PRoot
+		else:
+			self._m_sRoot = sRoot
+		self._m_sSourcePath = sSourcePath
 
-kmake() {
-	make -C "${kg_src}" ${kg_makeopts} "${@}"
-}
-
-# Ensure we have a valid kernel, and get its version.
-getkv() {
-	kg_kv=$(kmake -s kernelrelease 2>/dev/null | grep -v '^#')
-	[ ${?} -eq 0 -a -n "${kg_kv}" ]
-}
-
-if ! getkv; then
-	# No kernel was specified: find one, first checking if the standard symlink
-	# is in place.
-	kg_src="${p_root}usr/src/linux"
-	if [ -d "${kg_src}" ]; then
-		if ! getkv; then
-			eerror 'Unable to determine the version of the selected kernel source.'
-			exit 1
-		fi
-	else
-		eerror 'No suitable kernel source directory was found; please consider using the'
-		eerror "--source option, or invoke ${0##*/} from within a kernel source directory."
-		eerror
-		eerror 'You can enable the [1;34msymlink[0m USE flag to keep an up-to-date symlink to your'
-		eerror 'current kernel source directory in [1;36m/usr/src/linux[0m.'
-		eerror
-		eerror 'Unable to locate a kernel source directory.'
-		exit 1
-	fi
-fi
-kg_src="$(readlink -f "${kg_src}")"
-kg_src="${kg_src%/}/"
-kg_src_cfg="${kg_src}.config"
-kg_src_sysmap="${kg_src}System.map"
-
-# Check that the kernel has already been configured. One of these lines must be
-# near the top of .config:
-#   Linux/i386 2.6.37 Kernel Configuration
-#   Linux kernel version: 2.6.34
-if awk -v sKV="${kg_kv}" '
-	$0 ~ /^# Linux\/[^ ]* [^ ]* Kernel Configuration/ && $3 == sKV {
-		exit 1
-	}
-	$0 ~ /^# Linux kernel version: / && $5 == sKV {
-		exit 1
-	}
-	NR == 5 {
-		# Give up.
-		exit
-	}
-' <"${kg_src_cfg}" 2>/dev/null; then
-	eerror 'This kernel needs to be configured first.'
-	eerror 'Try:'
-	eerror "	make -C \"${kg_src}\" menuconfig"
-	exit 1
-fi
-
-# Get the kernel image compression method from the config file.
-kg_kernel_compr=$(awk '
-	/^CONFIG_KERNEL_(GZIP|BZIP2|LZMA|LZO)=y$/ {
-		print tolower(substr($0, 1 + 14, length() - 14 - 2))
-	}
-' <"${kg_src_cfg}")
-
-# If default, or if not compressed, just use the plain image.
-[ -z "${kg_src_img}" -o -z "${kg_kernel_compr}" ] && kg_src_img=vmlinux
-kg_src_img="${kg_src}${kg_src_img}"
-
-# Check for initramfs/initrd support with the config file.
-if grep -q '^CONFIG_BLK_DEV_INITRD=y$' <"${kg_src_cfg}"; then
-	if [ "${kg_initramfs-unset}" = unset ]; then
-		if [ -d "${p_root}usr/src/initramfs" ]; then
-			kg_initramfs="${p_root}usr/src/initramfs"
-		else
-			ewarn
-			ewarn 'The selected kernel was configured to support initramfs/initrd,'
-			ewarn 'but no suitable initramfs source directory was specified or found.'
-			ewarn 'No initramfs will be created.'
-			kg_initramfs=
-		fi
-	fi
-else
-	if [ -n "${kg_initramfs}" ]; then
-		eerror
-		eerror 'The selected kernel was not configured to support initramfs/initrd.'
-		exit 1
-	fi
-fi
-if [ -n "${kg_initramfs}" ]; then
-	# TODO: check that these CONFIG_ match:
-	#   +DEVTMPFS
-
-	# Try to pick, for the initramfs, the same compression as the kernel.
-	# Otherwise, pick any selected compression method, or remember not to
-	# compress at all.
-	kg_initramfs_compr=$(awk -v sKCompr=${kg_kernel_compr} '
-		/^CONFIG_RD_(GZIP|BZIP2|LZMA|LZO)=y$/ {
-			sICompr = sICompr " " tolower(substr($0, 1 + 10, length() - 10 - 2))
-		}
-		END {
-			if (sKCompr && index(sICompr, sKCompr))
-				# Same as the kernel image.
-				sICompr = sKCompr
-			else {
-				# Pick the first supported, or none.
-				sub(/^ /, "", sICompr)
-				sub(/ .*$/, "", sICompr)
-			}
-			sIExt = sICompr
-			# The lzo executable is in fact lzop.
-			if (sICompr == "lzo")
-				sICompr = "lzop"
-			# bzip2 => bz2, gzip => gz.
-			sub(/ip/, "", sIExt)
-			print sICompr " " sIExt
-		}
-	' <"${kg_src_cfg}")
-	kg_initramfs_ext=${kg_initramfs_compr#* }
-	kg_initramfs_compr=${kg_initramfs_compr% *}
-	kg_src_initramfs="${kg_initramfs:+${p_tmpdir}/initramfs.cpio.${kg_initramfs_ext}}"
-fi
-
-# Determine if cross-compiling.
-CROSS_COMPILE=$(
-	sed -ne 's/^CONFIG_CROSS_COMPILE="\([^"]*\)"$/\1/p' <"${kg_src_cfg}"
-)
-export CROSS_COMPILE
+		self._m_sIndent = ''
 
 
-einfo 'Preparing to build:'
-eindent
-einfo "[1;32mlinux-${kg_kv}[0m (${ARCH})"
-einfo "from [1;37m${kg_src}[0m"
+	def eindent(self):
+		"""TODO: comment"""
 
-if [ -n "${kg_initramfs}" ]; then
-	# Check that a valid initramfs directory was specified.
-	if ! kg_initramfs=$(readlink -e "${kg_initramfs}"); then
-		eerror 'Invalid initramfs directory'
-		exit 1
-	fi
-	einfo "with initramfs from [1;37m${kg_initramfs}[0m"
-fi
-if [ -n "${CROSS_COMPILE}" ]; then
-	einfo "cross-compiled with [1;37m${CROSS_COMPILE%-}[0m toolchain"
-fi
-eoutdent
-einfo
-
-# Use distcc, if enabled.
-# TODO: also add HOSTCC.
-if ${kg_distcc}; then
-	einfo 'Distributed C compiler (distcc) enabled'
-	kg_makeopts="${kg_makeopts} CC=distcc"
-	export DISTCC_DIR="${p_tmpdir}/portage/.distcc"
-	mkdir -p "${DISTCC_DIR}"
-fi
+		self._m_sIndent += '  '
 
 
-# Calculates paths for the files' final locations.
-getdstpaths() {
-	kg_dst_img="${kg_root}boot/linux-${kg_kv}"
-	kg_dst_initramfs="${kg_root}boot/initramfs-${kg_kv}.cpio.${kg_initramfs_ext}"
-	kg_dst_cfg="${kg_root}boot/config-${kg_kv}"
-	kg_dst_sysmap="${kg_root}boot/System.map-${kg_kv}"
-	kg_dst_mods="${kg_root}lib/modules/${kg_kv}"
-}
+	def eoutdent(self):
+		"""TODO: comment"""
 
-# Only invoke make if .config was changed since last compilation.
-if [ ! -e "${kg_src_img}" -o "${kg_src_cfg}" -nt "${kg_src_img}" ]; then
-	ebegin "Building linux-${kg_kv}"
-	kmake "${@}"
-	retval=${?}
-	einfo "Finished building linux-${kg_kv}"
-	eend ${retval} || exit
+		self._m_sIndent = self._m_sIndent[:-2]
 
-	# kmake won't touch the kernel image if .config doesn't require so, which
-	# means that the above test would always cause this if branch to be entered.
-	# A way to avoid this is to touch the kernel image now.
-	touch -m "${kg_src_img}"
 
-	if ${kg_rebuildmods}; then
-		ebegin 'Rebuilding kernel module packages'
-		kg_modpkgs=$(kernel-lsext -m -p)
-		if [ -n "${kg_modpkgs}" ]; then
-			env KERNEL_DIR="${kg_src}" \
-				"${CROSS_COMPILE}emerge" -q1 --usepkg=n --quiet-build \
-				${kg_modpkgs} \
-				>/dev/null
-			eend ${?} || exit
-		else
-			eend 0
-		fi
-	fi
-fi
+	def einfo(self, s):
+		"""TODO: comment"""
 
-if [ -n "${kg_initramfs}" ]; then
-	kg_work="${p_tmpdir}/initramfs-${kg_kv}/"
-	if [ -d "${kg_work%/}" ]; then
-		rm -rf "${kg_work}"*
-	else
-		mkdir "${kg_work%/}"
-	fi
-	cd "${kg_work}"
+		sys.stdout.write(self._m_sIndent + '[I] ' + s)
 
-	einfo 'Generating initramfs'
-	eindent
 
-	ebegin 'Adding kernel modules'
-	kmake INSTALL_MOD_PATH="${kg_work}" modules_install >/dev/null
-	eend ${?} || exit
-	# TODO: more proper way of excluding modules from the initramfs.
-	rm -rf "${kg_work}"lib*/modules/*/kernel/sound
+	def ewarn(self, s):
+		"""TODO: comment"""
 
-	ebegin 'Adding out-of-tree firmware'
-	# Create the folder beforehand; it not needed, we'll delete it later.
-	kg_fwdir="${kg_work}lib/firmware"
-	mkdir -p "${kg_fwdir}"
-	for kg_extfw in $(env ROOT="${kg_root}" kernel-lsext -w -f); do
-		# If the firmware is in a subfolder, create it.
-		kg_exfwdir=${kg_extfw%/*}
-		if [ ${kg_exfwdir} != ${kg_extfw} ]; then
-			mkdir -p "${kg_fwdir}/${kg_exfwdir}"
-		fi
-		# Copy the firmware file.
-		cp -a "${kg_root}lib/firmware/${kg_extfw}" "${kg_fwdir}/${kg_extfw}" ||
-			eend ${?} || exit
-	done
-	eend ${?} || exit
-	# If /lib/firmware is still empty, delete it.
-	rmdir "${kg_fwdir}" 2>/dev/null
+		sys.stdout.write(self._m_sIndent + '[W] ' + s)
 
-	if [ -f "${kg_initramfs}/build" -a -x "${kg_initramfs}/build" ]; then
-		# The initramfs has a build script; invoke it.
-		einfo 'Invoking initramfs custom build script'
-		eindent
-		# ARCH, PORTAGE_ARCH and CROSS_COMPILE are already exported.
-		env ROOT="${kg_root}" KERNEL_DIR="${kg_src}" "${kg_initramfs}/build" ||
-			exit
-		eoutdent
-	else
-		# No build script; just copy every file.
-		ebegin 'Adding source files'
-		cp -a "${kg_initramfs}/"* "${kg_work}"
-		eend ${?} || exit
-	fi
 
-	if ${kg_initramfs_debug}; then
-		initramfs_ls="${p_tmpdir}/initramfs-${kg_kv}.ls"
-		ebegin "Dumping contents of generated initramfs to ${initramfs_ls}"
-		ls -lR --color=always >"${initramfs_ls}"
-		eend ${?} || exit
-		unset initramfs_ls
-	fi
+	def eerror(self, s):
+		"""TODO: comment"""
 
-	ebegin 'Creating archive'
-	find . -mindepth 1 -printf '%P\0' |
-	cpio --create --format newc --null 2>/dev/null |
-	${kg_initramfs_compr:-cat} ${kg_initramfs_compr:+-9} >"${kg_src_initramfs}"
-	eend ${?} && [ -s "${kg_src_initramfs}" ] || exit
+		sys.stdout.write(self._m_sIndent + '[E] ' + s)
+		raise Exception(s)
 
-	ebegin 'Cleaning up initramfs'
-	cd - >/dev/null
-	rm -rf "${kg_work}"
-	eend ${?} || exit
 
-	eoutdent
-fi
+	def einfo_sizediff(self, sSubject, iPrevSize, iNewSize):
+		"""TODO: comment"""
 
-if ${kg_install}; then
-	getdstpaths
+		if iPrevSize == iNewSize:
+			self.einfo('{} size unchanged at {} KiB\n'.format(sSubject, (iNewSize + 1023) / 1024))
+		elif iPrevSize == 0:
+			self.einfo('{} size is {} KiB\n'.format(sSubject, (iNewSize + 1023) / 1024))
+		else:
+			if iNewSize > iPrevSize:
+				sPlusSign = '+'
+			else:
+				# A minus will be printed as part of the number.
+				sPlusSign = ''
+			self.einfo('{} size changed from {} KiB to {} KiB ({}{}%)\n'.format(
+				sSubject,
+				int((iPrevSize + 1023) / 1024),
+				int((iNewSize + 1023) / 1024),
+				sPlusSign,
+				int((iNewSize - iPrevSize) * 100 / iPrevSize)
+			))
 
-	dirsize() {
-		if [ -d "${1}" ]; then
-			find "${1}" -name '*.ko' -printf '%s\n' |
-			awk '{ cb += $0 } END { print cb }'
-		else
-			echo 0
-		fi
-	}
-	filesize() {
-		if [ -f "${1}" ]; then
-			stat -c'%s' "${1}"
-		else
-			echo 0
-		fi
-	}
-	einfo_sizediff() {
-		if [ ${2} -eq ${3} ]; then
-			einfo "${1} size unchanged at $(( ( ${3} + 1023 ) / 1024 )) KiB"
-		elif [ ${2} -eq 0 ]; then
-			einfo "${1} size is $(( ( ${3} + 1023 ) / 1024 )) KiB"
-		else
-			local plussign=
-			[ ${3} -gt ${2} ] && plussign='+'
-			einfo "${1} size changed from $((
-				( ${2} + 1023 ) / 1024
-			)) KiB to $((
-				( ${3} + 1023 ) / 1024
-			)) KiB (${plussign}$((
-				( ${3} - ${2} ) * 100 / ${2}
-			))%)"
-		fi
-	}
 
-	if [ "${kg_root}" = / ]; then
-		einfo 'Installing kernel'
-	else
-		einfo "Installing kernel to ${kg_root}"
-	fi
-	eindent
+	def kmake_args(self):
+		"""TODO: comment"""
 
-	# Ensure /boot is mounted.
-	[ -d "${kg_root}boot" ] || mkdir "${kg_root}boot"
-	kg_boot_unmount=false
-	if [ ! -e "${kg_root}boot/boot" ]; then
-		# Maybe /boot needs to be mounted. Can't just run mount /boot, since
-		# ${kg_root} is not necessarily '/'.
-		kg_boot_mount=$(awk '
-			!/^#/ && $2 == "/boot" {
-				print $1 " -t " $3 " -o " $4
-			}
-		' <"${kg_root}etc/fstab")
-		if [ -n "${kg_boot_mount}" ]; then
-			ebegin "Mounting ${kg_boot_mount%% *} to ${kg_root}boot"
-			mount ${kg_boot_mount} "${kg_root}boot"
-			eend ${?} || exit
-			kg_boot_unmount=true
-		fi
-	fi
+		return ['make', '-C', self._m_sSourcePath] + self._m_listMakeOpts
 
-	# Remove any initramfs-${kg_kv}.cpio.*, not just the one we're going to
-	# replace; this ensures we don't leave around a leftover initramfs just
-	# because it uses a different compression algorithm.
-	if [ \
-		-e "${kg_dst_img}" -o \
-		-e "${kg_dst_mods}" -o \
-		-e "${kg_dst_initramfs%.*}".* \
-	]; then
-		ebegin 'Removing old files'
-		kg_kernel_size=$(filesize "${kg_dst_img}")
-		kg_mods_size=$(dirsize "${kg_dst_mods}")
-		kg_initramfs_size=$(filesize "${kg_dst_initramfs}")
-		rm -f "${kg_dst_img}" "${kg_dst_initramfs%.*}".* \
-			"${kg_dst_cfg}" "${kg_dst_sysmap}"
-		# Remove every in-tree kernel module, leaving only the out-of-tree ones.
-		find "${kg_dst_mods}" $(
-			env ROOT="${kg_root}" kernel-lsext -m -f |
-			sed -e 's|^|! -path \*/|'
-		) \( ! -type d -o -empty \) -delete
-		eend ${?}
-	else
-		kg_kernel_size=0
-		kg_mods_size=0
-		kg_initramfs_size=0
-	fi
 
-	ebegin 'Installing kernel image'
-	cp -a "${kg_src_img}" "${kg_dst_img}" &&
-	cp -a "${kg_src_cfg}" "${kg_dst_cfg}" &&
-	cp -a "${kg_src_sysmap}" "${kg_dst_sysmap}"
-	eend ${?} || exit
-	if [ ${kg_kernel_size} -gt 0 ]; then
-		eindent
-		einfo_sizediff Kernel ${kg_kernel_size} $(filesize "${kg_dst_img}")
-		eoutdent
-	fi
+	def get_kernel_version(self):
+		"""TODO: comment"""
 
-	einfon 'Installing modules ...'
-	kmake INSTALL_MOD_PATH="${kg_root}" modules_install |
-	awk '
-		$1 == "INSTALL" {
-			cMods += 1
-		}
-		END {
-			print " (" cMods ")"
-		}
-	'
-	eend 0
-	if [ ${kg_mods_size} -gt 0 ]; then
-		eindent
-		einfo_sizediff Modules ${kg_mods_size} $(dirsize "${kg_dst_mods}")
-		eoutdent
-	fi
+		self._m_sKernelVersion = subprocess.check_output(
+			self.kmake_args() + ['-s', 'kernelrelease'],
+			stderr = sys.stderr, universal_newlines = True
+		).rstrip()
+		return self._m_sKernelVersion
 
-	if [ -n "${kg_initramfs}" ]; then
-		ebegin 'Installing initramfs'
-		cp -a "${kg_src_initramfs}" "${kg_dst_initramfs}"
-		eend ${?} || exit
-		if [ ${kg_initramfs_size} -gt 0 ]; then
-			eindent
-			einfo_sizediff initramfs \
-				${kg_initramfs_size} $(filesize "${kg_dst_initramfs}")
-			eoutdent
-		fi
-	fi
 
-	if ${kg_boot_unmount}; then
-		ebegin "Unmounting ${kg_root}boot"
-		umount "${kg_root}boot"
-		eend ${?} || exit
-	fi
+	def build_dst_paths(self):
+		"""Calculates paths for the files’ final locations."""
 
-	eoutdent
-fi
+		self._m_sDstImagePath = os.path.join(self._m_sRoot, 'boot/linux-' + self._m_sKernelVersion)
+		self._m_sDstIrfArchivePath = os.path.join(self._m_sRoot, 'boot/initramfs-{}.cpio{}'.format(
+			self._m_sKernelVersion, self._m_sIrfComprExt
+		))
+		self._m_sDstConfigPath = os.path.join(self._m_sRoot, 'boot/config-' + self._m_sKernelVersion)
+		self._m_sDstSysmapPath = os.path.join(
+			self._m_sRoot, 'boot/System.map-' + self._m_sKernelVersion
+		)
+		self._m_sDstModulesDir = os.path.join(self._m_sRoot, 'lib/modules/' + self._m_sKernelVersion)
 
-if [ -n "${kg_pkg}" ]; then
-	kg_root="${p_tmpdir}/pkg-${kg_kv}/"
-	mkdir -p "${kg_root}boot" "${kg_root}lib/modules"
 
-	# Recalculate the destinations, to collect everything into the temporary
-	# directory.
-	getdstpaths
+	@staticmethod
+	def modules_size(sDir):
+		"""TODO: comment"""
 
-	einfo 'Preparing kernel package'
-	eindent
+		cbModules = 0
+		# TODO: replace child process with Python code.
+		with subprocess.Popen(
+			['find', sDir, '-name', '*.ko', '-printf', '%s\\n'],
+			stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
+		) as procFind:
+			for sLine in procFind.stdout:
+				cbModules += int(sLine.rstrip(), 10)
+		return cbModules
 
-	ebegin 'Adding kernel image'
-	cp -a "${kg_src_img}" "${kg_dst_img}" &&
-	cp -a "${kg_src_cfg}" "${kg_dst_cfg}" &&
-	cp -a "${kg_src_sysmap}" "${kg_dst_sysmap}"
-	eend ${?} || exit
 
-	ebegin 'Adding modules'
-	kmake INSTALL_MOD_PATH="${kg_root}" modules_install
-	eend 0
+	def execute(self):
+		"""TODO: comment"""
 
-	if [ -n "${kg_initramfs}" ]; then
-		ebegin 'Adding initramfs'
-		cp -a "${kg_src_initramfs}" "${kg_dst_initramfs}"
-		eend ${?} || exit
-	fi
+		# Determine the ARCH and the generated kernel file name.
+		sKArch = self._m_sPArch
+		sSrcImageRelPath = None
+		if self._m_sPArch == 'x86':
+			sKArch = 'i386'
+			sSrcImageRelPath = 'arch/x86/boot/bzImage'
+		elif self._m_sPArch == 'amd64':
+			sKArch = 'x86_64'
+			sSrcImageRelPath = 'arch/x86/boot/bzImage'
+		elif self._m_sPArch == 'ppc':
+			sKArch = 'powerpc'
+		else:
+			self.eerror('Unsupported ARCH: {}\n'.format(self._m_sPArch))
+		os.environ['ARCH'] = sKArch
+		os.environ['PORTAGE_ARCH'] = self._m_sPArch
 
-	ebegin 'Creating archive'
-	# If ${PWD} was modified by --source, restore it now.
-	tar -C "${kg_root}" -cjf "${kg_pkg}" boot lib
-	eend ${?} || exit
+		# Ensure we have a valid kernel, and get its version.
+		if not self.get_kernel_version():
+			# No kernel was specified: find one, first checking if the standard symlink is in place.
+			self._m_sSourcePath = os.path.join(self._m_PRoot, 'usr/src/linux')
+			if not os.path.isdir(self._m_sSourcePath):
+				self.eerror(
+					'No suitable kernel source directory was found; please consider using the\n'
+				)
+				self.eerror(
+					'--source option, or invoke kernel-gen from within a kernel source directory.\n'
+				)
+				self.eerror('\n')
+				self.eerror(
+					'You can enable the [1;34msymlink[0m USE flag to keep an up-to-date ' +
+					'symlink to your\n'
+				)
+				self.eerror('current kernel source directory in [1;36m/usr/src/linux[0m.\n')
+				self.eerror('\n')
+				self.eerror('Unable to locate a kernel source directory.\n')
+			if not self.get_kernel_version():
+				self.eerror('Unable to determine the version of the selected kernel source.\n')
 
-	einfo 'Cleaning up kernel package'
-	rm -rf "${kg_root}"
-	eend ${?}
+		self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
+		sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
+		sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
+		os.environ['KERNEL_DIR'] = self._m_sSourcePath
 
-	eoutdent
-fi
+		dictEnvWithRoot = os.environ.copy()
+		dictEnvWithRoot['ROOT'] = self._m_sRoot
 
-if [ -n "${kg_initramfs}" ]; then
-	einfo 'Cleaning up temporary files'
-	rm -f "${kg_src_initramfs}"
-	eend ${?}
-fi
+		dictKernelConfig = {}
+		with open(sSrcConfigPath, 'r') as fileConfig:
+			iLine = 1
+			bConfigVersionFound = False
+			for sLine in fileConfig:
+				if not bConfigVersionFound:
+					# In the first 5 lines, expect to find a line like these, indicating that that the
+					# kernel has already been configured:
+					#    Linux/i386 2.6.37 Kernel Configuration
+					#    Linux kernel version: 2.6.34
+					if iLine < 5:
+						iLine += 1
+						match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration', sLine)
+						if not match:
+							match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
+						if match:
+							bConfigVersionFound = match.group('version') == self._m_sKernelVersion
+							continue
+					else:
+						self.eerror('This kernel needs to be configured first.\n')
+						self.eerror('Try:\n')
+						self.eerror("	make -C '{}' menuconfig\n".format(self._m_sSourcePath))
+				else:
+					match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
+					if match:
+						sValue = match.group('value')
+						if sValue == 'y':
+							oValue = True
+						elif sValue == 'n':
+							oValue = False
+						elif len(sValue) >= 2 and sValue[0] == '"' and sValue[:-1] == '"':
+							oValue = sValue[1:-1]
+						else:
+							oValue = sValue
+						dictKernelConfig[match.group('name')] = oValue
+
+		# Get the kernel image compression method from the config file.
+		sKernelCompressor = None
+		for sCompressor in 'LZO', 'LZMA', 'BZIP2', 'GZIP':
+			if dictKernelConfig.get('CONFIG_KERNEL_' + sCompressor):
+				sKernelCompressor = sCompressor
+				break
+
+		# If default, or if not compressed, just use the plain image.
+		if not sSrcImageRelPath or not sKernelCompressor:
+			sSrcImageRelPath = 'vmlinux'
+		sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
+		del sSrcImageRelPath
+
+		# Check for initramfs/initrd support with the config file.
+		if dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
+			if self._m_sIrfSourcePath == True:
+				self._m_sIrfSourcePath = os.path.join(self._m_PRoot, 'usr/src/initramfs')
+			if not os.path.isdir(self._m_sIrfSourcePath):
+				self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
+				self.ewarn('but no suitable initramfs source directory was specified or found.\n')
+				self.ewarn('No initramfs will be created.\n')
+				self._m_sIrfSourcePath = None
+		else:
+			if self._m_sIrfSourcePath:
+				self.eerror('\n')
+				self.eerror('The selected kernel was not configured to support initramfs/initrd.\n')
+
+		if self._m_sIrfSourcePath:
+			# TODO: check that these CONFIG_ match:
+			#   +DEVTMPFS
+
+			# Check for an enabled initramfs compression method.
+			sIrfCompressor = None
+			listEnabledIrfCompressors = []
+			for sCompressor in 'LZO', 'LZMA', 'BZIP2', 'GZIP':
+				if dictKernelConfig.get('CONFIG_RD_' + sCompressor):
+					if sCompressor == sKernelCompressor:
+						# We can pick the same compression for kernel image and initramfs.
+						sIrfCompressor = sKernelCompressor
+						break
+					# Not the same as the kernel image, but make a note of this in case the condition
+					# above is never satisfied.
+					listEnabledIrfCompressors.append(sCompressor)
+			# If this is still None, pick the first enabled compression method, if any.
+			if not sIrfCompressor and listEnabledIrfCompressors:
+				sIrfCompressor = listEnabledIrfCompressors[0]
+			if sIrfCompressor:
+				# Pick the corresponding filename extension.
+				self._m_sIrfComprExt = {
+					'BZIP2': '.bz2',
+					'GZIP' : '.gz',
+					'LZMA' : '.lzma',
+					'LZO'  : '.lzo',
+				}[sIrfCompressor]
+				# Pick the corresponding compressor executable.
+				sIrfCompressor = {
+					'BZIP2': 'bzip2',
+					'GZIP' : 'gzip',
+					'LZMA' : 'lzma',
+					'LZO'  : 'lzop',
+				}[sIrfCompressor]
+			if self._m_sIrfSourcePath:
+				sSrcIrfArchivePath = os.path.join(
+					self._m_PTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
+				)
+			else:
+				sSrcIrfArchivePath = None
+
+		# Determine if cross-compiling.
+		sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+		os.environ['CROSS_COMPILE'] = sCrossCompiler
+
+
+		self.einfo('Preparing to build:\n')
+		self.eindent()
+		self.einfo('[1;32mlinux-{}[0m ({})\n'.format(self._m_sKernelVersion, sKArch))
+		self.einfo('from [1;37m{}[0m\n'.format(self._m_sSourcePath))
+
+		if self._m_sIrfSourcePath:
+			# Check that a valid initramfs directory was specified.
+			self._m_sIrfSourcePath = os.path.realpath(self._m_sIrfSourcePath)
+			self.einfo('with initramfs from [1;37m{}[0m\n'.format(self._m_sIrfSourcePath))
+		if sCrossCompiler:
+			self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(sCrossCompiler))
+		self.eoutdent()
+		self.einfo('\n')
+
+		# Use distcc, if enabled.
+		# TODO: also add HOSTCC.
+		if self._m_bUseDistCC:
+			self.einfo('Distributed C compiler (distcc) enabled')
+			self._m_listMakeOpts.append('CC=distcc')
+			sDistCCDir = os.path.join(self._m_PTmpDir, 'portage/.distcc')
+			os.makedirs(sDistCCDir, 0o755, exist_ok = True)
+			os.environ['DISTCC_DIR'] = sDistCCDir
+			del sDistCCDir
+
+
+		# Only invoke make if .config was changed since last compilation.
+		if not os.path.exists(sSrcImagePath) or \
+			os.path.getmtime(sSrcConfigPath) > os.path.getmtime(sSrcImagePath) \
+		:
+			self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
+			subprocess.check_call(
+				self.kmake_args(), # "${@}"
+				stderr = sys.stderr
+			)
+			self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
+
+			# kmake won’t touch the kernel image if .config doesn’t require so, which means that the
+			# above test would always cause this if branch to be entered. A way to avoid this is to
+			# touch the kernel image now.
+			os.utime(sSrcImagePath, None)
+
+			if self._m_bRebuildModules:
+				self.einfo('Rebuilding kernel module packages ...\n')
+				listModulePackages = subprocess.check_output(
+					['kernel-lsext', '-m', '-p'],
+					stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
+				).rstrip().split('\n')
+				if listModulePackages:
+					subprocess.check_call(
+						[sCrossCompiler + 'emerge', '-q1', '--usepkg=n', '--quiet-build'] +
+							listModulePackages,
+						stderr = sys.stderr
+					)
+
+		if self._m_sIrfSourcePath:
+			sIrfWorkDir = os.path.join(self._m_PTmpDir, 'initramfs-' + self._m_sKernelVersion)
+			shutil.rmtree(sIrfWorkDir, ignore_errors = True)
+			os.mkdir(sIrfWorkDir, 0o755)
+			sPrevDir = os.getcwd()
+			os.chdir(sIrfWorkDir)
+
+			self.einfo('Generating initramfs\n')
+			self.eindent()
+
+			self.einfo('Adding kernel modules ...\n')
+			subprocess.check_call(
+				self.kmake_args() + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
+				stderr = sys.stderr
+			)
+			# TODO: more proper way of excluding modules from the initramfs.
+#			rm -rf sIrfWorkDir/lib*/modules/*/kernel/sound
+
+			self.einfo('Adding out-of-tree firmware ...\n')
+			# Create the folder beforehand; it not needed, we'll delete it later.
+			sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
+			sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
+			with subprocess.Popen(
+				['kernel-lsext', '-w', '-f'],
+				stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True,
+				env = dictEnvWithRoot
+			) as procKLsExt:
+				for sSrcExtFirmwarePath in procKLsExt.stdout:
+					sSrcExtFirmwarePath = sSrcExtFirmwarePath.rstrip()
+					sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
+					os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
+					# Copy the firmware file.
+					shutil.copy2(
+						os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath),
+						sDstExtFirmwarePath
+					)
+
+			sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
+			if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK):
+				# The initramfs has a build script; invoke it.
+				self.einfo('Invoking initramfs custom build script\n')
+				self.eindent()
+				# ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
+				subprocess.check_call(
+					[sIrfBuild],
+					stderr = sys.stderr, env  = dictEnvWithRoot
+				)
+				self.eoutdent()
+			else:
+				# No build script; just copy every file.
+				self.einfo('Adding source files ...\n')
+#				cp -a self._m_sIrfSourcePath/'*' sIrfWorkDir
+
+			if self._m_bIrfDebug:
+				sIrfDumpFileName = os.path.join(
+					self._m_PTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
+				)
+				self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
+					sIrfDumpFileName
+				))
+				subprocess.check_call(
+					['ls', '-lR', '--color=always'],
+					stdout = open(sIrfDumpFileName, 'w'), stderr = sys.stderr, universal_newlines = True
+				)
+				del sIrfDumpFileName
+
+			self.einfo('Creating archive ...\n')
+			with subprocess.Popen(
+				['find', '.', '-mindepth', '1', '-printf', '%P\n'],
+				stdout = subprocess.PIPE, stderr = sys.stderr
+			) as procFind:
+				with open(sSrcIrfArchivePath, 'wb') as fileIrfArchive:
+					if sIrfCompressor:
+						fileCpioStdout = subprocess.PIPE
+					else:
+						fileCpioStdout = fileIrfArchive
+					with subprocess.Popen(
+						['cpio', '--create', '--format', 'newc'],
+						stdin = procFind.stdout, stdout = fileCpioStdout, stderr = sys.stderr
+					) as procCpio:
+						if sIrfCompressor:
+							# No stderr forwarding here, since it always outputs junk.
+							with subprocess.Popen(
+								[sIrfCompressor, '-9'],
+								stdin = procCpio.stdout, stdout = fileIrfArchive
+							) as procCompress:
+								procFind.wait()
+								procCpio.wait()
+								procCompress.wait()
+						else:
+							procFind.wait()
+							procCpio.wait()
+					del fileCpioStdout
+
+			self.einfo('Cleaning up initramfs ...\n')
+			os.chdir(sPrevDir)
+			shutil.rmtree(sIrfWorkDir)
+
+			self.eoutdent()
+
+		if self._m_bInstall:
+			self.build_dst_paths()
+
+			if self._m_sRoot == '/':
+				self.einfo('Installing kernel\n')
+			else:
+				self.einfo('Installing kernel to {}\n'.format(self._m_sRoot))
+			self.eindent()
+
+			# Ensure /boot is mounted.
+			bUnmountBoot = False
+			sBootDir = os.path.join(self._m_sRoot, 'boot')
+			if not os.path.isdir(sBootDir):
+				os.mkdir(sBootDir, 0o755)
+			# /boot should contain a symlink to itself (“.”) named “boot”.
+			if not os.path.isdir(os.path.join(sBootDir, 'boot')):
+				# Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
+				# necessarily “/”.
+				listMountBootArgs = None
+				with open(os.path.join(self._m_sRoot, 'etc/fstab'), 'r') as fileFsTab:
+					for sLine in fileFsTab:
+						# Look for a non-comment line for /boot.
+						if re.match(r'^[^#]\S*\s+/boot\s', sLine):
+							# Break up the line.
+							listFields = re.split(r'\s+', sLine)
+							listMountBootArgs = [
+								'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
+							]
+							del listFields
+							break
+				if listMountBootArgs:
+					self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
+					subprocess.check_call(listMountBootArgs, stderr = sys.stderr)
+					bUnmountBoot = True
+					del listMountBootArgs
+
+			# Use a try/finally construct to ensure we do unmount /boot if we mounted it.
+			try:
+				cbKernelImage = 0
+				cbModules = 0
+				cbIrfArchive = 0
+				# We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
+				# going to replace; this ensures we don’t leave around a leftover initramfs just because
+				# it uses a different compression algorithm.
+				listDstIrfArchivePaths = glob.glob(
+					os.path.splitext(self._m_sDstIrfArchivePath)[0] + '.*'
+				)
+				if os.path.exists(self._m_sDstImagePath) or \
+					os.path.exists(self._m_sDstConfigPath) or \
+					os.path.exists(self._m_sDstSysmapPath) or \
+					os.path.exists(self._m_sDstModulesDir) or \
+					listDstIrfArchivePaths \
+				:
+					self.einfo('Removing old files ...\n')
+					try:
+						cbKernelImage = os.path.getsize(self._m_sDstImagePath)
+						os.unlink(self._m_sDstImagePath)
+					except OSError:
+						pass
+					try:
+						os.unlink(self._m_sDstConfigPath)
+					except OSError:
+						pass
+					try:
+						os.unlink(self._m_sDstSysmapPath)
+					except OSError:
+						pass
+					# Remove every in-tree kernel module, leaving only the out-of-tree ones.
+					cbModules = self.modules_size(self._m_sDstModulesDir)
+
+					sModuleFiles = subprocess.check_output(
+						['kernel-lsext', '-m', '-f'],
+						stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
+					)
+					sModuleFiles = re.sub(r'^', '! -path */', sModuleFiles, flags = re.MULTILINE)
+
+					subprocess.check_call(
+						['find', self._m_sDstModulesDir] + shlex.split(sModuleFiles) +
+							['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'],
+						stderr = sys.stderr
+					)
+					# Delete any initramfs archive.
+					for s in listDstIrfArchivePaths:
+						cbIrfArchive = os.path.getsize(s)
+						os.unlink(s)
+				del listDstIrfArchivePaths
+
+				self.einfo('Installing kernel image ...\n')
+				shutil.copy2(sSrcImagePath, self._m_sDstImagePath)
+				shutil.copy2(sSrcConfigPath, self._m_sDstConfigPath)
+				shutil.copy2(sSrcSysmapPath, self._m_sDstSysmapPath)
+				if cbKernelImage:
+					self.eindent()
+					self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImagePath))
+					self.eoutdent()
+
+				self.einfo('Installing modules ...')
+				cModules = 0
+				with subprocess.Popen(
+					self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
+					stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
+				) as procKmake:
+					for sLine in procKmake.stdout:
+						if re.match(r'^\s*INSTALL\s', sLine):
+							cModules += 1
+				sys.stdout.write(' ({})\n'.format(cModules))
+
+				if cbModules:
+					self.eindent()
+					self.einfo_sizediff('Modules', cbModules, self.modules_size(self._m_sDstModulesDir))
+					self.eoutdent()
+
+				if self._m_sIrfSourcePath:
+					self.einfo('Installing initramfs ...\n')
+					shutil.copy2(sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
+					if cbIrfArchive:
+						self.eindent()
+						self.einfo_sizediff(
+							'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchivePath)
+						)
+						self.eoutdent()
+			finally:
+				if bUnmountBoot:
+					self.einfo('Unmounting {} ...\n'.format(sBootDir))
+					subprocess.check_call(['umount', sBootDir], stderr = sys.stderr)
+
+			self.eoutdent()
+
+		if self._m_sPackageFileName:
+			self._m_sRoot = os.path.join(self._m_PTmpDir, 'pkg-' + self._m_sKernelVersion)
+			os.makedirs(os.path.join(sBootDir, 'lib/modules'), 0o755, exist_ok = True)
+
+			# Recalculate the destinations, to collect everything into the temporary directory.
+			self.build_dst_paths()
+
+			self.einfo('Preparing kernel package\n')
+			self.eindent()
+
+			self.einfo('Adding kernel image ...\n')
+			shutil.copy2(sSrcImagePath, self._m_sDstImagePath)
+			shutil.copy2(sSrcConfigPath, self._m_sDstConfigPath)
+			shutil.copy2(sSrcSysmapPath, self._m_sDstSysmapPath)
+
+			self.einfo('Adding modules ...\n')
+			subprocess.check_call(
+				self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
+				stderr = sys.stderr
+			)
+
+			if self._m_sIrfSourcePath:
+				self.einfo('Adding initramfs ...\n')
+				shutil.copy2(sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
+
+			self.einfo('Creating archive ...\n')
+			subprocess.check_call(
+				['tar', '-C', sBootDir, '-cjf', self._m_sPackageFileName, 'boot', 'lib'],
+				stderr = sys.stderr
+			)
+
+			self.einfo('Cleaning up kernel package ...\n')
+			shutil.rmtree(sBootDir)
+
+			self.eoutdent()
+
+		if self._m_sIrfSourcePath:
+			self.einfo('Cleaning up temporary files ...\n')
+			os.unlink(sSrcIrfArchivePath)
+
+
+
+####################################################################################################
+# __main__
+
+if __name__ == '__main__':
+	import os
+	import sys
+	# Get the full path of this script.
+	sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
+	# Setup the PATH environment variable to load kerneltools.
+	sys.path.append(sDir)
+	import kerneltools
+
+	# Set option defaults.
+	sPArch = None
+	sIrfSourcePath = True
+	bIrfDebug = False
+	bInstall = True
+	sPackageFileName = None
+	bRebuildModules = True
+	sRoot = None
+	sSourcePath = os.getcwd()
+
+	# Scan the command line.
+	for sArg in sys.argv[1:]:
+		# Discard this argument.
+		if sArg == '-a' or sArg.startswith('--arch='):
+			sPArch = re.sub(r'[^=]+=', '', sArg)
+		elif sArg == '-i' or sArg.startswith('--initramfs='):
+			sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+		elif sArg == '--initramfs-debug':
+			bIrfDebug = True
+		elif sArg == '--no-initramfs':
+			sIrfSourcePath = None
+		elif sArg == '--no-install':
+			bInstall = False
+		elif sArg == '--no-rebuildmods':
+			bRebuildModules = False
+		elif sArg == '-p' or sArg.startswith('--package='):
+			sPackageFileName = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+		elif sArg == '-r' or sArg.startswith('--root='):
+			sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+		elif sArg == '-s' or sArg.startswith('--source='):
+			sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+		elif sArg == '-v' or sArg == '--verbose':
+			os.environ['KG_VERBOSE'] = '1'
+		elif sArg == '--':
+			break
+		else:
+			import textwrap
+			sys.stdout.write(textwrap.dedent("""\
+				Usage: kernel-gen [options]
+				Possible options:
+				-a, --arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
+				 			to Portage's ARCH variable.
+				-i, --initramfs=DIR	Use DIR as an initramfs source directory. Defaults to
+							`${ROOT}/usr/src/initramfs'.
+				    --initramfs-debug	Dumps the contents of the generated initramfs before
+				 			packaging it.
+				    --help		Show this informative message and quit.
+				    --no-initramfs	Ignore the initramfs directory, even if existent.
+				    --no-install	Don't install the compiled kernel; also ignores --root
+				 			and --no-rebuildmods.
+				    --no-rebuildmods	Don't rebuild packages providing external modules;
+				 			delete the module files instead.
+				-p, --package=FILE	Copy the kernel to a compressed tar archive named FILE.
+				-r, --root=DIR		Use DIR as root directory. Defaults to Portage's
+				 			${ROOT}.
+				-s, --source=DIR	Select DIR as the kernel source directory. Defaults to
+				 			the current directory or `${ROOT}/usr/src/linux'.
+				-v, --verbose		Enable extended output (mainly from the package manager)
+			"""))
+			if sArg == '--help':
+				sys.exit(0)
+			else:
+				sys.exit(1)
+
+	gen = Generator(
+		sPArch = sPArch,
+		sIrfSourcePath = sIrfSourcePath,
+		bIrfDebug = bIrfDebug,
+		bInstall = bInstall,
+		sPackageFileName = sPackageFileName,
+		bRebuildModules = bRebuildModules,
+		sRoot = sRoot,
+		sSourcePath = sSourcePath
+	)
+	gen.execute()
+
+	sys.exit(0)
 
