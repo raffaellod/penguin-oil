@@ -39,8 +39,7 @@ class Generator(object):
 	"""
 
 	def __init__(
-		self, sPArch, sIrfSourcePath, bIrfDebug, bInstall, sPackageFileName, bRebuildModules, sRoot,
-		sSourcePath
+		self, sPArch, sIrfSourcePath, bIrfDebug, bRebuildModules, sRoot, sSourcePath
 	):
 		"""Constructor. TODO: comment"""
 
@@ -56,24 +55,33 @@ class Generator(object):
 			# Eat any remaining output, then wait for termination.
 			procPortageQ.communicate()
 
+		self._m_sIndent = ''
+		self._m_sIrfComprExt = ''
+		self._m_bIrfDebug = bIrfDebug
+		self._m_sIrfSourcePath = sIrfSourcePath
 		if sPArch == None:
 			self._m_sPArch = sPDefArch
 		else:
 			self._m_sPArch = sPArch
-		self._m_sIrfComprExt = ''
-		self._m_bIrfDebug = bIrfDebug
-		self._m_sIrfSourcePath = sIrfSourcePath
-		self._m_bInstall = bInstall
-		self._m_sPackageFileName = sPackageFileName
 		self._m_bRebuildModules = bRebuildModules
-		self._m_bUseDistCC = re.search(r'\bdistcc\b', sFeatures) != None
 		if sRoot == None:
 			self._m_sRoot = self._m_PRoot
 		else:
 			self._m_sRoot = sRoot
 		self._m_sSourcePath = sSourcePath
+		self._m_sSrcConfigPath = None
+		self._m_sSrcImagePath = None
+		self._m_sSrcIrfArchivePath = None
+		self._m_sSrcSysmapPath = None
+		self._m_bUseDistCC = re.search(r'\bdistcc\b', sFeatures) != None
 
-		self._m_sIndent = ''
+
+	def __del__(self):
+		"""Destructor."""
+
+		if self._m_sIrfSourcePath:
+			self.einfo('Cleaning up temporary files ...\n')
+			os.unlink(self._m_sSrcIrfArchivePath)
 
 
 	def eindent(self):
@@ -111,9 +119,9 @@ class Generator(object):
 		"""TODO: comment"""
 
 		if iPrevSize == iNewSize:
-			self.einfo('{} size unchanged at {} KiB\n'.format(sSubject, (iNewSize + 1023) / 1024))
+			self.einfo('{} size unchanged at {} KiB\n'.format(sSubject, int((iNewSize + 1023) / 1024)))
 		elif iPrevSize == 0:
-			self.einfo('{} size is {} KiB\n'.format(sSubject, (iNewSize + 1023) / 1024))
+			self.einfo('{} size is {} KiB\n'.format(sSubject, int((iNewSize + 1023) / 1024)))
 		else:
 			if iNewSize > iPrevSize:
 				sPlusSign = '+'
@@ -145,18 +153,16 @@ class Generator(object):
 		return self._m_sKernelVersion
 
 
-	def build_dst_paths(self):
-		"""Calculates paths for the files’ final locations."""
+	def build_dst_paths(self, sRoot):
+		"""Calculates the destination paths for each file to be installed/packaged."""
 
-		self._m_sDstImagePath = os.path.join(self._m_sRoot, 'boot/linux-' + self._m_sKernelVersion)
-		self._m_sDstIrfArchivePath = os.path.join(self._m_sRoot, 'boot/initramfs-{}.cpio{}'.format(
+		self._m_sDstImagePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
+		self._m_sDstIrfArchivePath = os.path.join(sRoot, 'boot/initramfs-{}.cpio{}'.format(
 			self._m_sKernelVersion, self._m_sIrfComprExt
 		))
-		self._m_sDstConfigPath = os.path.join(self._m_sRoot, 'boot/config-' + self._m_sKernelVersion)
-		self._m_sDstSysmapPath = os.path.join(
-			self._m_sRoot, 'boot/System.map-' + self._m_sKernelVersion
-		)
-		self._m_sDstModulesDir = os.path.join(self._m_sRoot, 'lib/modules/' + self._m_sKernelVersion)
+		self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
+		self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
+		self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/' + self._m_sKernelVersion)
 
 
 	@staticmethod
@@ -216,15 +222,15 @@ class Generator(object):
 				self.eerror('Unable to determine the version of the selected kernel source.\n')
 
 		self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
-		sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
-		sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
+		self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
+		self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
 		os.environ['KERNEL_DIR'] = self._m_sSourcePath
 
 		dictEnvWithRoot = os.environ.copy()
 		dictEnvWithRoot['ROOT'] = self._m_sRoot
 
 		dictKernelConfig = {}
-		with open(sSrcConfigPath, 'r') as fileConfig:
+		with open(self._m_sSrcConfigPath, 'r') as fileConfig:
 			iLine = 1
 			bConfigVersionFound = False
 			for sLine in fileConfig:
@@ -269,7 +275,7 @@ class Generator(object):
 		# If default, or if not compressed, just use the plain image.
 		if not sSrcImageRelPath or not sKernelCompressor:
 			sSrcImageRelPath = 'vmlinux'
-		sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
+		self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
 		del sSrcImageRelPath
 
 		# Check for initramfs/initrd support with the config file.
@@ -320,12 +326,9 @@ class Generator(object):
 					'LZMA' : 'lzma',
 					'LZO'  : 'lzop',
 				}[sIrfCompressor]
-			if self._m_sIrfSourcePath:
-				sSrcIrfArchivePath = os.path.join(
-					self._m_PTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
-				)
-			else:
-				sSrcIrfArchivePath = None
+			self._m_sSrcIrfArchivePath = os.path.join(
+				self._m_PTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
+			)
 
 		# Determine if cross-compiling.
 		sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
@@ -358,8 +361,8 @@ class Generator(object):
 
 
 		# Only invoke make if .config was changed since last compilation.
-		if not os.path.exists(sSrcImagePath) or \
-			os.path.getmtime(sSrcConfigPath) > os.path.getmtime(sSrcImagePath) \
+		if not os.path.exists(self._m_sSrcImagePath) or \
+			os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
 		:
 			self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
 			subprocess.check_call(
@@ -371,7 +374,7 @@ class Generator(object):
 			# kmake won’t touch the kernel image if .config doesn’t require so, which means that the
 			# above test would always cause this if branch to be entered. A way to avoid this is to
 			# touch the kernel image now.
-			os.utime(sSrcImagePath, None)
+			os.utime(self._m_sSrcImagePath, None)
 
 			if self._m_bRebuildModules:
 				self.einfo('Rebuilding kernel module packages ...\n')
@@ -457,7 +460,7 @@ class Generator(object):
 				['find', '.', '-mindepth', '1', '-printf', '%P\n'],
 				stdout = subprocess.PIPE, stderr = sys.stderr
 			) as procFind:
-				with open(sSrcIrfArchivePath, 'wb') as fileIrfArchive:
+				with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
 					if sIrfCompressor:
 						fileCpioStdout = subprocess.PIPE
 					else:
@@ -486,171 +489,174 @@ class Generator(object):
 
 			self.eoutdent()
 
-		if self._m_bInstall:
-			self.build_dst_paths()
 
-			if self._m_sRoot == '/':
-				self.einfo('Installing kernel\n')
-			else:
-				self.einfo('Installing kernel to {}\n'.format(self._m_sRoot))
-			self.eindent()
+	def install(self):
+		"""TODO: comment"""
 
-			# Ensure /boot is mounted.
-			bUnmountBoot = False
-			sBootDir = os.path.join(self._m_sRoot, 'boot')
-			if not os.path.isdir(sBootDir):
-				os.mkdir(sBootDir, 0o755)
-			# /boot should contain a symlink to itself (“.”) named “boot”.
-			if not os.path.isdir(os.path.join(sBootDir, 'boot')):
-				# Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
-				# necessarily “/”.
-				listMountBootArgs = None
-				with open(os.path.join(self._m_sRoot, 'etc/fstab'), 'r') as fileFsTab:
-					for sLine in fileFsTab:
-						# Look for a non-comment line for /boot.
-						if re.match(r'^[^#]\S*\s+/boot\s', sLine):
-							# Break up the line.
-							listFields = re.split(r'\s+', sLine)
-							listMountBootArgs = [
-								'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
-							]
-							del listFields
-							break
-				if listMountBootArgs:
-					self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
-					subprocess.check_call(listMountBootArgs, stderr = sys.stderr)
-					bUnmountBoot = True
-					del listMountBootArgs
+		self.build_dst_paths(self._m_sRoot)
 
-			# Use a try/finally construct to ensure we do unmount /boot if we mounted it.
-			try:
-				cbKernelImage = 0
-				cbModules = 0
-				cbIrfArchive = 0
-				# We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
-				# going to replace; this ensures we don’t leave around a leftover initramfs just because
-				# it uses a different compression algorithm.
-				listDstIrfArchivePaths = glob.glob(
-					os.path.splitext(self._m_sDstIrfArchivePath)[0] + '.*'
-				)
-				if os.path.exists(self._m_sDstImagePath) or \
-					os.path.exists(self._m_sDstConfigPath) or \
-					os.path.exists(self._m_sDstSysmapPath) or \
-					os.path.exists(self._m_sDstModulesDir) or \
-					listDstIrfArchivePaths \
-				:
-					self.einfo('Removing old files ...\n')
-					try:
-						cbKernelImage = os.path.getsize(self._m_sDstImagePath)
-						os.unlink(self._m_sDstImagePath)
-					except OSError:
-						pass
-					try:
-						os.unlink(self._m_sDstConfigPath)
-					except OSError:
-						pass
-					try:
-						os.unlink(self._m_sDstSysmapPath)
-					except OSError:
-						pass
-					# Remove every in-tree kernel module, leaving only the out-of-tree ones.
-					cbModules = self.modules_size(self._m_sDstModulesDir)
+		if self._m_sRoot == '/':
+			self.einfo('Installing kernel\n')
+		else:
+			self.einfo('Installing kernel to {}\n'.format(self._m_sRoot))
+		self.eindent()
 
-					sModuleFiles = subprocess.check_output(
-						['kernel-lsext', '-m', '-f'],
-						stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
-					)
-					sModuleFiles = re.sub(r'^', '! -path */', sModuleFiles, flags = re.MULTILINE)
+		# Ensure /boot is mounted.
+		bUnmountBoot = False
+		sBootDir = os.path.join(self._m_sRoot, 'boot')
+		if not os.path.isdir(sBootDir):
+			os.mkdir(sBootDir, 0o755)
+		# /boot should contain a symlink to itself (“.”) named “boot”.
+		if not os.path.isdir(os.path.join(sBootDir, 'boot')):
+			# Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
+			# necessarily “/”.
+			listMountBootArgs = None
+			with open(os.path.join(self._m_sRoot, 'etc/fstab'), 'r') as fileFsTab:
+				for sLine in fileFsTab:
+					# Look for a non-comment line for /boot.
+					if re.match(r'^[^#]\S*\s+/boot\s', sLine):
+						# Break up the line.
+						listFields = re.split(r'\s+', sLine)
+						listMountBootArgs = [
+							'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
+						]
+						del listFields
+						break
+			if listMountBootArgs:
+				self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
+				subprocess.check_call(listMountBootArgs, stderr = sys.stderr)
+				bUnmountBoot = True
+				del listMountBootArgs
 
-					subprocess.check_call(
-						['find', self._m_sDstModulesDir] + shlex.split(sModuleFiles) +
-							['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'],
-						stderr = sys.stderr
-					)
-					# Delete any initramfs archive.
-					for s in listDstIrfArchivePaths:
-						cbIrfArchive = os.path.getsize(s)
-						os.unlink(s)
-				del listDstIrfArchivePaths
-
-				self.einfo('Installing kernel image ...\n')
-				shutil.copy2(sSrcImagePath, self._m_sDstImagePath)
-				shutil.copy2(sSrcConfigPath, self._m_sDstConfigPath)
-				shutil.copy2(sSrcSysmapPath, self._m_sDstSysmapPath)
-				if cbKernelImage:
-					self.eindent()
-					self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImagePath))
-					self.eoutdent()
-
-				self.einfo('Installing modules ...')
-				cModules = 0
-				with subprocess.Popen(
-					self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
-					stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
-				) as procKmake:
-					for sLine in procKmake.stdout:
-						if re.match(r'^\s*INSTALL\s', sLine):
-							cModules += 1
-				sys.stdout.write(' ({})\n'.format(cModules))
-
-				if cbModules:
-					self.eindent()
-					self.einfo_sizediff('Modules', cbModules, self.modules_size(self._m_sDstModulesDir))
-					self.eoutdent()
-
-				if self._m_sIrfSourcePath:
-					self.einfo('Installing initramfs ...\n')
-					shutil.copy2(sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
-					if cbIrfArchive:
-						self.eindent()
-						self.einfo_sizediff(
-							'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchivePath)
-						)
-						self.eoutdent()
-			finally:
-				if bUnmountBoot:
-					self.einfo('Unmounting {} ...\n'.format(sBootDir))
-					subprocess.check_call(['umount', sBootDir], stderr = sys.stderr)
-
-			self.eoutdent()
-
-		if self._m_sPackageFileName:
-			self._m_sRoot = os.path.join(self._m_PTmpDir, 'pkg-' + self._m_sKernelVersion)
-			os.makedirs(os.path.join(sBootDir, 'lib/modules'), 0o755, exist_ok = True)
-
-			# Recalculate the destinations, to collect everything into the temporary directory.
-			self.build_dst_paths()
-
-			self.einfo('Preparing kernel package\n')
-			self.eindent()
-
-			self.einfo('Adding kernel image ...\n')
-			shutil.copy2(sSrcImagePath, self._m_sDstImagePath)
-			shutil.copy2(sSrcConfigPath, self._m_sDstConfigPath)
-			shutil.copy2(sSrcSysmapPath, self._m_sDstSysmapPath)
-
-			self.einfo('Adding modules ...\n')
-			subprocess.check_call(
-				self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
-				stderr = sys.stderr
+		# Use a try/finally construct to ensure we do unmount /boot if we mounted it.
+		try:
+			cbKernelImage = 0
+			cbModules = 0
+			cbIrfArchive = 0
+			# We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
+			# going to replace; this ensures we don’t leave around a leftover initramfs just because
+			# it uses a different compression algorithm.
+			listDstIrfArchivePaths = glob.glob(
+				os.path.splitext(self._m_sDstIrfArchivePath)[0] + '.*'
 			)
+			if os.path.exists(self._m_sDstImagePath) or \
+				os.path.exists(self._m_sDstConfigPath) or \
+				os.path.exists(self._m_sDstSysmapPath) or \
+				os.path.exists(self._m_sDstModulesDir) or \
+				listDstIrfArchivePaths \
+			:
+				self.einfo('Removing old files ...\n')
+				try:
+					cbKernelImage = os.path.getsize(self._m_sDstImagePath)
+					os.unlink(self._m_sDstImagePath)
+				except OSError:
+					pass
+				try:
+					os.unlink(self._m_sDstConfigPath)
+				except OSError:
+					pass
+				try:
+					os.unlink(self._m_sDstSysmapPath)
+				except OSError:
+					pass
+				# Remove every in-tree kernel module, leaving only the out-of-tree ones.
+				cbModules = self.modules_size(self._m_sDstModulesDir)
+
+				dictEnvWithRoot = os.environ.copy()
+				dictEnvWithRoot['ROOT'] = self._m_sRoot
+				sModuleFiles = subprocess.check_output(
+					['kernel-lsext', '-m', '-f'],
+					stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
+				)
+				del dictEnvWithRoot
+				sModuleFiles = re.sub(r'^', '! -path */', sModuleFiles, flags = re.MULTILINE)
+
+				subprocess.check_call(
+					['find', self._m_sDstModulesDir] + shlex.split(sModuleFiles) +
+						['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'],
+					stderr = sys.stderr
+				)
+				# Delete any initramfs archive.
+				for s in listDstIrfArchivePaths:
+					cbIrfArchive += os.path.getsize(s)
+					os.unlink(s)
+			del listDstIrfArchivePaths
+
+			self.einfo('Installing kernel image ...\n')
+			shutil.copy2(self._m_sSrcImagePath, self._m_sDstImagePath)
+			shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
+			shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
+			if cbKernelImage:
+				self.eindent()
+				self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImagePath))
+				self.eoutdent()
+
+			self.einfo('Installing modules ...')
+			cModules = 0
+			with subprocess.Popen(
+				self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
+				stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
+			) as procKmake:
+				for sLine in procKmake.stdout:
+					if re.match(r'^\s*INSTALL\s', sLine):
+						cModules += 1
+			sys.stdout.write(' ({})\n'.format(cModules))
+
+			if cbModules:
+				self.eindent()
+				self.einfo_sizediff('Modules', cbModules, self.modules_size(self._m_sDstModulesDir))
+				self.eoutdent()
 
 			if self._m_sIrfSourcePath:
-				self.einfo('Adding initramfs ...\n')
-				shutil.copy2(sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
+				self.einfo('Installing initramfs ...\n')
+				shutil.copy2(self._m_sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
+				if cbIrfArchive:
+					self.eindent()
+					self.einfo_sizediff(
+						'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchivePath)
+					)
+					self.eoutdent()
+		finally:
+			if bUnmountBoot:
+				self.einfo('Unmounting {} ...\n'.format(sBootDir))
+				subprocess.check_call(['umount', sBootDir], stderr = sys.stderr)
 
-			self.einfo('Creating archive ...\n')
-			subprocess.check_call(
-				['tar', '-C', sBootDir, '-cjf', self._m_sPackageFileName, 'boot', 'lib'],
-				stderr = sys.stderr
-			)
+		self.eoutdent()
 
-			self.einfo('Cleaning up kernel package ...\n')
-			shutil.rmtree(sBootDir)
 
-			self.eoutdent()
+	def package(self, sPackageFileName):
+		"""TODO: comment"""
+
+		sPackageRoot = os.path.join(self._m_PTmpDir, 'pkg-' + self._m_sKernelVersion)
+		os.makedirs(os.path.join(sPackageRoot, 'lib/modules'), 0o755, exist_ok = True)
+		self.build_dst_paths(sPackageRoot)
+
+		self.einfo('Preparing kernel package\n')
+		self.eindent()
+
+		self.einfo('Adding kernel image ...\n')
+		shutil.copy2(self._m_sSrcImagePath, self._m_sDstImagePath)
+		shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
+		shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
+
+		self.einfo('Adding modules ...\n')
+		subprocess.check_call(
+			self.kmake_args() + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
+			stderr = sys.stderr
+		)
 
 		if self._m_sIrfSourcePath:
-			self.einfo('Cleaning up temporary files ...\n')
-			os.unlink(sSrcIrfArchivePath)
+			self.einfo('Adding initramfs ...\n')
+			shutil.copy2(self._m_sSrcIrfArchivePath, self._m_sDstIrfArchivePath)
+
+		self.einfo('Creating archive ...\n')
+		subprocess.check_call(
+			['tar', '-C', sPackageRoot, '-cjf', sPackageFileName, 'boot', 'lib'],
+			stderr = sys.stderr
+		)
+
+		self.einfo('Cleaning up kernel package ...\n')
+		shutil.rmtree(sPackageRoot)
+
+		self.eoutdent()
 

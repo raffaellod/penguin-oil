@@ -112,13 +112,15 @@ if __name__ == '__main__':
 		sPArch = sPArch,
 		sIrfSourcePath = sIrfSourcePath,
 		bIrfDebug = bIrfDebug,
-		bInstall = bInstall,
-		sPackageFileName = sPackageFileName,
 		bRebuildModules = bRebuildModules,
 		sRoot = sRoot,
 		sSourcePath = sSourcePath
 	)
 	gen.execute()
+	if bInstall:
+		gen.install()
+	if sPackageFileName:
+		gen.package(sPackageFileName)
 
 	sys.exit(0)
 
