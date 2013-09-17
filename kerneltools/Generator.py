@@ -427,7 +427,7 @@ class Generator(object):
 					)
 
 			sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
-			if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK):
+			if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
 				# The initramfs has a build script; invoke it.
 				self.einfo('Invoking initramfs custom build script\n')
 				self.eindent()
