@@ -447,13 +447,14 @@ class Generator(object):
 				sIrfDumpFileName = os.path.join(
 					self._m_PTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
 				)
-				self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
-					sIrfDumpFileName
-				))
-				subprocess.check_call(
-					['ls', '-lR', '--color=always'],
-					stdout = open(sIrfDumpFileName, 'w'), stderr = sys.stderr, universal_newlines = True
-				)
+				with open(sIrfDumpFileName, 'w') as fileIrfDump:
+					self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
+						sIrfDumpFileName
+					))
+					subprocess.check_call(
+						['ls', '-lR', '--color=always'],
+						stdout = fileIrfDump, stderr = sys.stderr, universal_newlines = True
+					)
 				del sIrfDumpFileName
 
 			self.einfo('Creating archive ...\n')
