@@ -27,6 +27,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from . import ExternalModuleEnumerator
 
 
 
@@ -266,9 +267,7 @@ class Generator(object):
 		self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
 		self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
 		os.environ['KERNEL_DIR'] = self._m_sSourcePath
-
-		dictEnvWithRoot = os.environ.copy()
-		dictEnvWithRoot['ROOT'] = self._m_sRoot
+		os.environ['ROOT'] = self._m_sRoot
 
 		dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, self._m_sKernelVersion)
 
@@ -385,10 +384,8 @@ class Generator(object):
 
 			if self._m_bRebuildModules:
 				self.einfo('Rebuilding kernel module packages ...\n')
-				listModulePackages = subprocess.check_output(
-					['kernel-lsext', '-m', '-p'],
-					stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
-				).rstrip().split('\n')
+				eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
+				listModulePackages = list(eme.packages())
 				if listModulePackages:
 					subprocess.check_call(
 						[sCrossCompiler + 'emerge', '-q1', '--usepkg=n', '--quiet-build'] +
@@ -418,20 +415,15 @@ class Generator(object):
 			# Create the folder beforehand; it not needed, we'll delete it later.
 			sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
 			sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
-			with subprocess.Popen(
-				['kernel-lsext', '-w', '-f'],
-				stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True,
-				env = dictEnvWithRoot
-			) as procKLsExt:
-				for sSrcExtFirmwarePath in procKLsExt.stdout:
-					sSrcExtFirmwarePath = sSrcExtFirmwarePath.rstrip()
-					sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
-					os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
-					# Copy the firmware file.
-					shutil.copy2(
-						os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath),
-						sDstExtFirmwarePath
-					)
+			eme = ExternalModuleEnumerator(bFirmware = True, bModules = False)
+			for sSrcExtFirmwarePath in eme.files():
+				sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
+				os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
+				# Copy the firmware file.
+				shutil.copy2(
+					os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath),
+					sDstExtFirmwarePath
+				)
 
 			sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
 			if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
@@ -439,10 +431,7 @@ class Generator(object):
 				self.einfo('Invoking initramfs custom build script\n')
 				self.eindent()
 				# ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
-				subprocess.check_call(
-					[sIrfBuild],
-					stderr = sys.stderr, env  = dictEnvWithRoot
-				)
+				subprocess.check_call([sIrfBuild], stderr = sys.stderr)
 				self.eoutdent()
 			else:
 				# No build script; just copy every file.
@@ -571,13 +560,8 @@ class Generator(object):
 				# Remove every in-tree kernel module, leaving only the out-of-tree ones.
 				cbModules = self.modules_size(self._m_sDstModulesDir)
 
-				dictEnvWithRoot = os.environ.copy()
-				dictEnvWithRoot['ROOT'] = self._m_sRoot
-				sModuleFiles = subprocess.check_output(
-					['kernel-lsext', '-m', '-f'],
-					stderr = sys.stderr, universal_newlines = True, env = dictEnvWithRoot
-				)
-				del dictEnvWithRoot
+				eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
+				sModuleFiles = '\n'.join(list(eme.files()))
 				sModuleFiles = re.sub(r'^', '! -path */', sModuleFiles, flags = re.MULTILINE)
 
 				subprocess.check_call(

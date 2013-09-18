@@ -65,6 +65,20 @@ class ExternalModuleEnumerator(object):
 				yield sFilePath
 
 
+	def packages(self, bUseSlot = True):
+		"""Enumerates all packages that installed files matching the criteria specified in the
+		constructor.
+
+		[bool bUseSlot]
+			If True (default), each package will end in its slot number instead of its version.
+		str yield
+			Package.
+		"""
+
+		for sPackage, listFiles in self.packages_and_files(bUseSlot = False):
+			yield sPackage
+
+
 	def packages_and_files(self, bUseSlot = True):
 		"""Enumerates all packages and/or files matching the criteria specified in the constructor.
 
