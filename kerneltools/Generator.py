@@ -307,7 +307,6 @@ class Generator(object):
 		if not sSrcImageRelPath or not sKernelCompressor:
 			sSrcImageRelPath = 'vmlinux'
 		self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
-		del sSrcImageRelPath
 
 		if self._m_sIrfSourcePath:
 			# Check for initramfs/initrd support with the config file.
@@ -388,7 +387,6 @@ class Generator(object):
 			sDistCCDir = os.path.join(self._m_PTmpDir, 'portage/.distcc')
 			os.makedirs(sDistCCDir, 0o755, exist_ok = True)
 			os.environ['DISTCC_DIR'] = sDistCCDir
-			del sDistCCDir
 
 
 		# Only invoke make if .config was changed since last compilation.
@@ -477,7 +475,6 @@ class Generator(object):
 							['ls', '-lR', '--color=always'],
 							stdout = fileIrfDump, universal_newlines = True
 						)
-					del sIrfDumpFileName
 
 				self.einfo('Creating archive ...\n')
 				with subprocess.Popen(
@@ -546,13 +543,11 @@ class Generator(object):
 						listMountBootArgs = [
 							'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
 						]
-						del listFields
 						break
 			if listMountBootArgs:
 				self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
 				subprocess.check_call(listMountBootArgs, stdout = self._m_fileNullOut)
 				bUnmountBoot = True
-				del listMountBootArgs
 
 		# Use a try/finally construct to ensure we do unmount /boot if we mounted it.
 		try:
@@ -600,7 +595,6 @@ class Generator(object):
 				for s in listDstIrfArchivePaths:
 					cbIrfArchive += os.path.getsize(s)
 					os.unlink(s)
-			del listDstIrfArchivePaths
 
 			self.einfo('Installing kernel image ...\n')
 			shutil.copy2(self._m_sSrcImagePath, self._m_sDstImagePath)
