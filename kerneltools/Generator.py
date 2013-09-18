@@ -45,12 +45,14 @@ class Generator(object):
 		"""Constructor. TODO: comment"""
 
 		self._m_fileNullOut = open(os.devnull, 'w')
+		self._m_listKMakeArgs = ['make', '-C', sSourcePath]
+
 		with subprocess.Popen(
 			['portageq', 'envvar', 'ARCH', 'MAKEOPTS', 'ROOT', 'PORTAGE_TMPDIR', 'FEATURES'],
 			stdout = subprocess.PIPE, universal_newlines = True
 		) as procPortageQ:
 			sPDefArch = procPortageQ.stdout.readline().rstrip()
-			self._m_listMakeOpts = shlex.split(procPortageQ.stdout.readline().rstrip())
+			self._m_listKMakeArgs.extend(shlex.split(procPortageQ.stdout.readline().rstrip()))
 			self._m_PRoot = procPortageQ.stdout.readline().rstrip()
 			self._m_PTmpDir = procPortageQ.stdout.readline().rstrip()
 			sFeatures = procPortageQ.stdout.readline()
@@ -140,17 +142,11 @@ class Generator(object):
 			))
 
 
-	def kmake_args(self):
-		"""TODO: comment"""
-
-		return ['make', '-C', self._m_sSourcePath] + self._m_listMakeOpts
-
-
 	def get_kernel_version(self):
 		"""TODO: comment"""
 
 		self._m_sKernelVersion = subprocess.check_output(
-			self.kmake_args() + ['-s', 'kernelrelease'],
+			self._m_listKMakeArgs + ['-s', 'kernelrelease'],
 			universal_newlines = True
 		).rstrip()
 		return self._m_sKernelVersion
@@ -361,7 +357,7 @@ class Generator(object):
 		# TODO: also add HOSTCC.
 		if self._m_bUseDistCC:
 			self.einfo('Distributed C compiler (distcc) enabled')
-			self._m_listMakeOpts.append('CC=distcc')
+			self._m_listKMakeArgs.append('CC=distcc')
 			sDistCCDir = os.path.join(self._m_PTmpDir, 'portage/.distcc')
 			os.makedirs(sDistCCDir, 0o755, exist_ok = True)
 			os.environ['DISTCC_DIR'] = sDistCCDir
@@ -374,7 +370,7 @@ class Generator(object):
 		:
 			self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
 			subprocess.check_call(
-				self.kmake_args(), # "${@}"
+				self._m_listKMakeArgs, # "${@}"
 				stdout = self._m_fileNullOut
 			)
 			self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
@@ -407,7 +403,7 @@ class Generator(object):
 
 			self.einfo('Adding kernel modules ...\n')
 			subprocess.check_call(
-				self.kmake_args() + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
+				self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
 				stdout = self._m_fileNullOut
 			)
 			# TODO: more proper way of excluding modules from the initramfs.
@@ -588,7 +584,7 @@ class Generator(object):
 			self.einfo('Installing modules ...')
 			cModules = 0
 			with subprocess.Popen(
-				self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
+				self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
 				stdout = subprocess.PIPE, universal_newlines = True
 			) as procKmake:
 				for sLine in procKmake.stdout:
@@ -635,7 +631,7 @@ class Generator(object):
 
 		self.einfo('Adding modules ...\n')
 		subprocess.check_call(
-			self.kmake_args() + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
+			self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
 			stdout = self._m_fileNullOut
 		)
 
