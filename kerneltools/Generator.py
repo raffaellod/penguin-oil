@@ -215,14 +215,14 @@ class Generator(object):
 			bConfigVersionFound = False
 			for sLine in fileConfig:
 				if not bConfigVersionFound:
-					# In the first 5 lines, expect to find a line like these, indicating that that the
-					# kernel has already been configured:
-					#    Linux/i386 2.6.37 Kernel Configuration
-					#    Linux kernel version: 2.6.34
+					# In the first 5 lines, expect to find a line that indicates the kernel has already
+					# been configured.
 					if iLine < 5:
 						iLine += 1
+						# Match: “Linux/i386 2.6.37 Kernel Configuration”.
 						match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration', sLine)
 						if not match:
+							# Match: “Linux kernel version: 2.6.34”.
 							match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
 						if match:
 							bConfigVersionFound = match.group('version') == sKernelVersion
