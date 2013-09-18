@@ -44,6 +44,7 @@ class Generator(object):
 	):
 		"""Constructor. TODO: comment"""
 
+		self._m_fileNullOut = open(os.devnull, 'w')
 		with subprocess.Popen(
 			['portageq', 'envvar', 'ARCH', 'MAKEOPTS', 'ROOT', 'PORTAGE_TMPDIR', 'FEATURES'],
 			stdout = subprocess.PIPE, universal_newlines = True
@@ -83,6 +84,7 @@ class Generator(object):
 		if self._m_sSrcIrfArchivePath:
 			self.einfo('Cleaning up temporary files ...\n')
 			os.unlink(self._m_sSrcIrfArchivePath)
+		self._m_fileNullOut.close()
 
 
 	def eindent(self):
@@ -149,7 +151,7 @@ class Generator(object):
 
 		self._m_sKernelVersion = subprocess.check_output(
 			self.kmake_args() + ['-s', 'kernelrelease'],
-			stderr = sys.stderr, universal_newlines = True
+			universal_newlines = True
 		).rstrip()
 		return self._m_sKernelVersion
 
@@ -174,7 +176,7 @@ class Generator(object):
 		# TODO: replace child process with Python code.
 		with subprocess.Popen(
 			['find', sDir, '-name', '*.ko', '-printf', '%s\\n'],
-			stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
+			stdout = subprocess.PIPE, universal_newlines = True
 		) as procFind:
 			for sLine in procFind.stdout:
 				cbModules += int(sLine.rstrip(), 10)
@@ -373,7 +375,7 @@ class Generator(object):
 			self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
 			subprocess.check_call(
 				self.kmake_args(), # "${@}"
-				stderr = sys.stderr
+				stdout = self._m_fileNullOut
 			)
 			self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
 
@@ -390,7 +392,7 @@ class Generator(object):
 					subprocess.check_call(
 						[sCrossCompiler + 'emerge', '-q1', '--usepkg=n', '--quiet-build'] +
 							listModulePackages,
-						stderr = sys.stderr
+						stdout = self._m_fileNullOut
 					)
 
 		if self._m_sIrfSourcePath:
@@ -406,7 +408,7 @@ class Generator(object):
 			self.einfo('Adding kernel modules ...\n')
 			subprocess.check_call(
 				self.kmake_args() + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
-				stderr = sys.stderr
+				stdout = self._m_fileNullOut
 			)
 			# TODO: more proper way of excluding modules from the initramfs.
 #			rm -rf sIrfWorkDir/lib*/modules/*/kernel/sound
@@ -431,7 +433,7 @@ class Generator(object):
 				self.einfo('Invoking initramfs custom build script\n')
 				self.eindent()
 				# ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
-				subprocess.check_call([sIrfBuild], stderr = sys.stderr)
+				subprocess.check_call([sIrfBuild])
 				self.eoutdent()
 			else:
 				# No build script; just copy every file.
@@ -449,26 +451,26 @@ class Generator(object):
 					))
 					subprocess.check_call(
 						['ls', '-lR', '--color=always'],
-						stdout = fileIrfDump, stderr = sys.stderr, universal_newlines = True
+						stdout = fileIrfDump, universal_newlines = True
 					)
 				del sIrfDumpFileName
 
 			self.einfo('Creating archive ...\n')
 			with subprocess.Popen(
 				['find', '.', '-mindepth', '1', '-printf', '%P\n'],
-				stdout = subprocess.PIPE, stderr = sys.stderr
+				stdout = subprocess.PIPE
 			) as procFind:
 				with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
 					if sIrfCompressor:
 						fileCpioStdout = subprocess.PIPE
 					else:
 						fileCpioStdout = fileIrfArchive
+					# Redirect cpio’s output to /dev/null, since it likes to output junk.
 					with subprocess.Popen(
 						['cpio', '--create', '--format', 'newc'],
-						stdin = procFind.stdout, stdout = fileCpioStdout, stderr = sys.stderr
+						stdin = procFind.stdout, stdout = fileCpioStdout, stderr = self._m_fileNullOut
 					) as procCpio:
 						if sIrfCompressor:
-							# No stderr forwarding here, since it always outputs junk.
 							with subprocess.Popen(
 								[sIrfCompressor, '-9'],
 								stdin = procCpio.stdout, stdout = fileIrfArchive
@@ -522,7 +524,7 @@ class Generator(object):
 						break
 			if listMountBootArgs:
 				self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
-				subprocess.check_call(listMountBootArgs, stderr = sys.stderr)
+				subprocess.check_call(listMountBootArgs, stdout = self._m_fileNullOut)
 				bUnmountBoot = True
 				del listMountBootArgs
 
@@ -566,8 +568,7 @@ class Generator(object):
 
 				subprocess.check_call(
 					['find', self._m_sDstModulesDir] + shlex.split(sModuleFiles) +
-						['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'],
-					stderr = sys.stderr
+						['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete']
 				)
 				# Delete any initramfs archive.
 				for s in listDstIrfArchivePaths:
@@ -588,7 +589,7 @@ class Generator(object):
 			cModules = 0
 			with subprocess.Popen(
 				self.kmake_args() + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
-				stdout = subprocess.PIPE, stderr = sys.stderr, universal_newlines = True
+				stdout = subprocess.PIPE, universal_newlines = True
 			) as procKmake:
 				for sLine in procKmake.stdout:
 					if re.match(r'^\s*INSTALL\s', sLine):
@@ -612,7 +613,7 @@ class Generator(object):
 		finally:
 			if bUnmountBoot:
 				self.einfo('Unmounting {} ...\n'.format(sBootDir))
-				subprocess.check_call(['umount', sBootDir], stderr = sys.stderr)
+				subprocess.check_call(['umount', sBootDir], stdout = self._m_fileNullOut)
 
 		self.eoutdent()
 
@@ -635,7 +636,7 @@ class Generator(object):
 		self.einfo('Adding modules ...\n')
 		subprocess.check_call(
 			self.kmake_args() + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
-			stderr = sys.stderr
+			stdout = self._m_fileNullOut
 		)
 
 		if self._m_sIrfSourcePath:
@@ -645,7 +646,7 @@ class Generator(object):
 		self.einfo('Creating archive ...\n')
 		subprocess.check_call(
 			['tar', '-C', sPackageRoot, '-cjf', sPackageFileName, 'boot', 'lib'],
-			stderr = sys.stderr
+			stdout = self._m_fileNullOut
 		)
 
 		self.einfo('Cleaning up kernel package ...\n')
