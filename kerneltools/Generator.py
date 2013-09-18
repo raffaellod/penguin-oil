@@ -379,7 +379,6 @@ class Generator(object):
 		if sCrossCompiler:
 			self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(sCrossCompiler))
 		self.eoutdent()
-		self.einfo('\n')
 
 		# Use distcc, if enabled.
 		# TODO: also add HOSTCC.
