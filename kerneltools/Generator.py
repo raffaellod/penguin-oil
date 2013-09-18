@@ -286,19 +286,20 @@ class Generator(object):
 		self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
 		del sSrcImageRelPath
 
-		# Check for initramfs/initrd support with the config file.
-		if dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
-			if self._m_sIrfSourcePath == True:
-				self._m_sIrfSourcePath = os.path.join(self._m_PRoot, 'usr/src/initramfs')
-			if not os.path.isdir(self._m_sIrfSourcePath):
-				self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
-				self.ewarn('but no suitable initramfs source directory was specified or found.\n')
-				self.ewarn('No initramfs will be created.\n')
-				self._m_sIrfSourcePath = None
-		else:
-			if self._m_sIrfSourcePath:
-				self.eerror('\n')
-				self.eerror('The selected kernel was not configured to support initramfs/initrd.\n')
+		if self._m_sIrfSourcePath:
+			# Check for initramfs/initrd support with the config file.
+			if dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
+				if self._m_sIrfSourcePath == True:
+					self._m_sIrfSourcePath = os.path.join(self._m_PRoot, 'usr/src/initramfs')
+				if not os.path.isdir(self._m_sIrfSourcePath):
+					self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
+					self.ewarn('but no suitable initramfs source directory was specified or found.\n')
+					self.ewarn('No initramfs will be created.\n')
+					self._m_sIrfSourcePath = None
+			else:
+				if self._m_sIrfSourcePath:
+					self.eerror('\n')
+					self.eerror('The selected kernel was not configured to support initramfs/initrd.\n')
 
 		if self._m_sIrfSourcePath:
 			# TODO: check that these CONFIG_ match:
