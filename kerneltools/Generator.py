@@ -592,7 +592,7 @@ class Generator(object):
 				stdout = subprocess.PIPE, universal_newlines = True
 			) as procKmake:
 				for sLine in procKmake.stdout:
-					if re.match(r'^\s*INSTALL\s', sLine):
+					if re.match(r'^\s*INSTALL\s+\S+\.ko$', sLine):
 						cModules += 1
 			sys.stdout.write(' ({})\n'.format(cModules))
 
