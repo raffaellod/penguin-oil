@@ -79,7 +79,7 @@ class Generator(object):
 	def __del__(self):
 		"""Destructor."""
 
-		if self._m_sIrfSourcePath:
+		if self._m_sSrcIrfArchivePath:
 			self.einfo('Cleaning up temporary files ...\n')
 			os.unlink(self._m_sSrcIrfArchivePath)
 
