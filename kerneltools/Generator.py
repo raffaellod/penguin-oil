@@ -147,7 +147,11 @@ class Generator(object):
 
 
 	def get_kernel_version(self):
-		"""TODO: comment"""
+		"""Retrieves the kernel version for the source directory specified in the constructor.
+
+		str return
+			Kernel version reported by “make kernelrelease”. Also available as self._m_sKernelVersion.
+		"""
 
 		self._m_sKernelVersion = subprocess.check_output(
 			self._m_listKMakeArgs + ['-s', 'kernelrelease'],
@@ -157,7 +161,11 @@ class Generator(object):
 
 
 	def build_dst_paths(self, sRoot):
-		"""Calculates the destination paths for each file to be installed/packaged."""
+		"""Calculates the destination paths for each file to be installed/packaged.
+
+		str sRoot
+			Absolute path to which the calculated paths will be relative.
+		"""
 
 		self._m_sDstImagePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
 		self._m_sDstIrfArchivePath = os.path.join(sRoot, 'boot/initramfs-{}.cpio{}'.format(
@@ -170,7 +178,13 @@ class Generator(object):
 
 	@staticmethod
 	def modules_size(sDir):
-		"""TODO: comment"""
+		"""Calculates the size in bytes of the kernel modules contained in the specified directory.
+
+		str sDir
+			Directory containing kernel modules.
+		int return
+			Total size of the kernel modules in sDir.
+		"""
 
 		cbModules = 0
 		# TODO: replace child process with Python code.
@@ -184,7 +198,16 @@ class Generator(object):
 
 
 	def load_kernel_config(self, sConfigPath, sKernelVersion):
-		"""TODO: comment"""
+		"""Loads the specified kernel configuration file (.config), returning the entries defined in
+		it and verifying that it’s for a specific kernel version.
+
+		str sConfigPath
+			Configuration file.
+		str sKernelVersion
+			Kernel version to be matched.
+		dict(object) return
+			Configuration entries.
+		"""
 
 		dictKernelConfig = {}
 		with open(sConfigPath, 'r') as fileConfig:
@@ -493,7 +516,9 @@ class Generator(object):
 
 
 	def install(self):
-		"""TODO: comment"""
+		"""Installs the kernel image, modules and optional initramfs to their respective positions
+		within the root directory specified in the constructor.
+		"""
 
 		self.build_dst_paths(self._m_sRoot)
 
@@ -621,7 +646,12 @@ class Generator(object):
 
 
 	def package(self, sPackageFileName):
-		"""TODO: comment"""
+		"""Generates a package (tarball) containing the same files that would be installed by
+		install(): kernel image, modules, and optional initramfs.
+
+		str sPackageFileName
+			Full path of the package file that will be created.
+		"""
 
 		sPackageRoot = os.path.join(self._m_PTmpDir, 'pkg-' + self._m_sKernelVersion)
 		shutil.rmtree(sPackageRoot, ignore_errors = True)
