@@ -21,9 +21,8 @@
 """Implementation of the class ExternalModuleEnumerator."""
 
 import os
+import portage
 import re
-import subprocess
-import sys
 
 
 
@@ -42,15 +41,13 @@ class ExternalModuleEnumerator(object):
 			Enumerate modules installed by non-kernel packages.
 		"""
 
+		sRoot = os.environ.get('ROOT', '/')
 		self._m_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
 		self._m_bFirmware = bFirmware
 		self._m_sFirmwarePath = 'lib/firmware/'
 		self._m_bModules = bModules
-		self._m_cchRoot = len(os.environ.get('ROOT', '/'))
-		self._m_sVdbPath = subprocess.check_output(
-			['portageq', 'vdb_path'],
-			stderr = sys.stderr, universal_newlines = True
-		).rstrip()
+		self._m_cchRoot = len(sRoot)
+		self._m_sVdbPath = os.path.join(sRoot, portage.VDB_PATH)
 
 
 	def files(self):
