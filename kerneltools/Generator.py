@@ -85,7 +85,11 @@ class Generator(object):
 
 		if self._m_sSrcIrfArchivePath:
 			self.einfo('Cleaning up temporary files ...\n')
-			os.unlink(self._m_sSrcIrfArchivePath)
+			try:
+				os.unlink(self._m_sSrcIrfArchivePath)
+			except OSError:
+				# Maybe the file name was initialized, but the file itself hadn’t yet been created.
+				pass
 		self._m_fileNullOut.close()
 
 
