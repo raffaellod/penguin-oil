@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3 -*-
-#---------------------------------------------------------------------------------------------------
-# kernel-tools
-# Copyright 2012-2013 Raffaello D. Di Napoli
-#---------------------------------------------------------------------------------------------------
+#
+# Copyright 2012, 2013
+# Raffaello D. Di Napoli
+#
 # This file is part of kernel-tools.
 #
 # kernel-tools is free software: you can redistribute it and/or modify it under the terms of the GNU
