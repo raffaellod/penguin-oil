@@ -41,7 +41,7 @@ class ExternalModuleEnumerator(object):
 			Enumerate modules installed by non-kernel packages.
 		"""
 
-		sRoot = os.environ.get('ROOT', '/')
+		sRoot = portage.settings['EROOT']
 		self._m_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
 		self._m_bFirmware = bFirmware
 		self._m_sFirmwarePath = 'lib/firmware/'

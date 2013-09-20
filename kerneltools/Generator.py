@@ -22,6 +22,7 @@
 
 import glob
 import os
+import portage
 import re
 import shlex
 import shutil
@@ -45,31 +46,20 @@ class Generator(object):
 		"""Constructor. TODO: comment"""
 
 		self._m_fileNullOut = open(os.devnull, 'w')
-		self._m_listKMakeArgs = ['make', '-C', sSourcePath]
-
-		with subprocess.Popen(
-			['portageq', 'envvar', 'ARCH', 'MAKEOPTS', 'ROOT', 'PORTAGE_TMPDIR', 'FEATURES'],
-			stdout = subprocess.PIPE, universal_newlines = True
-		) as procPortageQ:
-			sPDefArch = procPortageQ.stdout.readline().rstrip()
-			self._m_listKMakeArgs.extend(shlex.split(procPortageQ.stdout.readline().rstrip()))
-			self._m_PRoot = procPortageQ.stdout.readline().rstrip()
-			self._m_PTmpDir = procPortageQ.stdout.readline().rstrip()
-			sFeatures = procPortageQ.stdout.readline()
-			# Eat any remaining output, then wait for termination.
-			procPortageQ.communicate()
-
 		self._m_sIndent = ''
 		self._m_sIrfComprExt = ''
 		self._m_bIrfDebug = bIrfDebug
 		self._m_sIrfSourcePath = sIrfSourcePath
+		self._m_listKMakeArgs = ['make', '-C', sSourcePath]
+		self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
 		if sPArch == None:
-			self._m_sPArch = sPDefArch
+			self._m_sPArch = portage.settings['ARCH']
 		else:
 			self._m_sPArch = sPArch
+		self._m_sPRoot = portage.settings['EROOT']
 		self._m_bRebuildModules = bRebuildModules
 		if sRoot == None:
-			self._m_sRoot = self._m_PRoot
+			self._m_sRoot = self._m_sPRoot
 		else:
 			self._m_sRoot = sRoot
 		self._m_sSourcePath = sSourcePath
@@ -77,7 +67,8 @@ class Generator(object):
 		self._m_sSrcImagePath = None
 		self._m_sSrcIrfArchivePath = None
 		self._m_sSrcSysmapPath = None
-		self._m_bUseDistCC = re.search(r'\bdistcc\b', sFeatures) != None
+		self._m_sTmpDir = portage.settings['PORTAGE_TMPDIR']
+		self._m_bUseDistCC = re.search(r'\bdistcc\b', portage.settings['FEATURES']) != None
 
 
 	def __del__(self):
@@ -269,7 +260,7 @@ class Generator(object):
 		# Ensure we have a valid kernel, and get its version.
 		if not self.get_kernel_version():
 			# No kernel was specified: find one, first checking if the standard symlink is in place.
-			self._m_sSourcePath = os.path.join(self._m_PRoot, 'usr/src/linux')
+			self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
 			if not os.path.isdir(self._m_sSourcePath):
 				self.eerror(
 					'No suitable kernel source directory was found; please consider using the\n'
@@ -312,7 +303,7 @@ class Generator(object):
 			# Check for initramfs/initrd support with the config file.
 			if dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
 				if self._m_sIrfSourcePath == True:
-					self._m_sIrfSourcePath = os.path.join(self._m_PRoot, 'usr/src/initramfs')
+					self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
 				if not os.path.isdir(self._m_sIrfSourcePath):
 					self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
 					self.ewarn('but no suitable initramfs source directory was specified or found.\n')
@@ -358,7 +349,7 @@ class Generator(object):
 					'LZO'  : 'lzop',
 				}[sIrfCompressor]
 			self._m_sSrcIrfArchivePath = os.path.join(
-				self._m_PTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
+				self._m_sTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
 			)
 
 		# Determine if cross-compiling.
@@ -384,7 +375,7 @@ class Generator(object):
 		if self._m_bUseDistCC:
 			self.einfo('Distributed C compiler (distcc) enabled')
 			self._m_listKMakeArgs.append('CC=distcc')
-			sDistCCDir = os.path.join(self._m_PTmpDir, 'portage/.distcc')
+			sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
 			os.makedirs(sDistCCDir, 0o755, exist_ok = True)
 			os.environ['DISTCC_DIR'] = sDistCCDir
 
@@ -418,7 +409,7 @@ class Generator(object):
 
 		if self._m_sIrfSourcePath:
 			sPrevDir = os.getcwd()
-			sIrfWorkDir = os.path.join(self._m_PTmpDir, 'initramfs-' + self._m_sKernelVersion)
+			sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
 			shutil.rmtree(sIrfWorkDir, ignore_errors = True)
 			os.mkdir(sIrfWorkDir, 0o755)
 			try:
@@ -465,7 +456,7 @@ class Generator(object):
 
 				if self._m_bIrfDebug:
 					sIrfDumpFileName = os.path.join(
-						self._m_PTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
+						self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
 					)
 					with open(sIrfDumpFileName, 'w') as fileIrfDump:
 						self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
@@ -646,7 +637,7 @@ class Generator(object):
 			Full path of the package file that will be created.
 		"""
 
-		sPackageRoot = os.path.join(self._m_PTmpDir, 'pkg-' + self._m_sKernelVersion)
+		sPackageRoot = os.path.join(self._m_sTmpDir, 'pkg-' + self._m_sKernelVersion)
 		shutil.rmtree(sPackageRoot, ignore_errors = True)
 		os.makedirs(os.path.join(sPackageRoot, 'lib/modules'), 0o755, exist_ok = True)
 		try:
