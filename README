@@ -30,46 +30,51 @@ self-contained initramfs-building system (such as tinytium).
 The kernel-tools suite comprises these components:
 
 kernel-gen
-   Generates a kernel binary+modules and/or tarball, optionally generating an initramfs from a
-   compatible self-contained initramfs-building system (such as tinytium). See also § 2.1 Using
-   kernel-gen.
+   Generates a kernel binary+modules and/or tarball, optionally generating an
+   initramfs from a compatible self-contained initramfs-building system (such as
+   tinytium). See also § 2.1 Using kernel-gen.
 
 kernel-lsext
-   Lists external firmware and/or modules for Linux along with the packages that installed them.
+   Lists external firmware and/or modules for Linux along with the packages that
+   installed them.
 
 
 2.1 Using kernel-gen
 --------------------
 
-Prior to running kernel-gen, a kernel source code folder must be configured (make menuconfig). Once
-that’s done, kernel-gen can be directed to the correct folder by either creating a symlink to it at
-/usr/src/linux, or by passing a --source argument.
+Prior to running kernel-gen, a kernel source code folder must be configured
+(make menuconfig). Once that’s done, kernel-gen can be directed to the correct
+folder by either creating a symlink to it at /usr/src/linux, or by passing a
+--source argument.
 
 
 2.1.1 Building the kernel
 -------------------------
 
-kernel-gen will build the selected kernel using as much of the Portage’s configuration as possible
-(e.g. distcc settings, make flags).
+kernel-gen will build the selected kernel using as much of the Portage’s
+configuration as possible (e.g. distcc settings, make flags).
 
-Before running make, kernel-gen will inspect the kernel configuration (.config) to make sure that no
-settings will result in the kernel being unable to use the initramfs, if one is to be built (see
-§ 2.1.2 Building an initramfs).
+Before running make, kernel-gen will inspect the kernel configuration (.config)
+to make sure that no settings will result in the kernel being unable to use the
+initramfs, if one is to be built (see § 2.1.2 Building an initramfs).
 
-After the kernel image has been generated, kernel-gen will rebuild all external modules to make them
-compatible with the just-built image, unless --no-rebuildmods is specified.
+After the kernel image has been generated, kernel-gen will rebuild all external
+modules to make them compatible with the just-built image, unless
+--no-rebuildmods is specified.
 
 
 2.1.2 Building an initramfs
 ---------------------------
 
-Perhaps the most useful feature of kernel-gen is its ability to rebuild an initramfs to include the
-in-tree an external kernel modules that have been just built.
+Perhaps the most useful feature of kernel-gen is its ability to rebuild an
+initramfs to include the in-tree an external kernel modules that have been just
+built.
 
-kernel-gen supports using for an initramfs either a folder with the initramfs contents, or a folder
-containing at least an executable named “build”, which will be invoked from within the temporary
-working directory which kernel-gen will create the initramfs archive from. Additionally, these
-environment variables are passed to the build program:
+kernel-gen supports using for an initramfs either a folder with the initramfs
+contents, or a folder containing at least an executable named “build”, which
+will be invoked from within the temporary working directory which kernel-gen
+will create the initramfs archive from. Additionally, these environment
+variables are passed to the build program:
 
    ARCH
       Target architecture, using the Linux kernel’s naming convention.
@@ -78,23 +83,26 @@ environment variables are passed to the build program:
    PORTAGE_ARCH
       Target architecture, using Portage’s naming convention.
 
-The build program will be responsible for adding any additional files to the working directory,
-which will then be taken as-is to generate the initramfs archive.
+The build program will be responsible for adding any additional files to the
+working directory, which will then be taken as-is to generate the initramfs
+archive.
 
-For kernel-gen to pick an initramfs and enable the generation of the initramfs archive, a symlink to
-it must be created at /usr/src/initramfs, or the path to it must be passed using the --initramfs
-argument to kernel-gen.
+For kernel-gen to pick an initramfs and enable the generation of the initramfs
+archive, a symlink to it must be created at /usr/src/initramfs, or the path to
+it must be passed using the --initramfs argument to kernel-gen.
 
-When debugging the initramfs’s build program, passing the argument --initramfs-debug will generate a
-dump of the contents of the initramfs just before it is packaged.
+When debugging the initramfs’s build program, passing the argument
+--initramfs-debug will generate a dump of the contents of the initramfs just
+before it is packaged.
 
 
 2.1.3 Installing the generated kernel and initramfs
 ---------------------------------------------------
 
-Unless instructed not to by using the --no-install command line argument, kernel-gen will install
-the generated kernel and initramfs to what Portage considers to be ${ROOT}; this can be overridden
-by specifying --root with a different path.
+Unless instructed not to by using the --no-install command line argument,
+kernel-gen will install the generated kernel and initramfs to what Portage
+considers to be ${ROOT}; this can be overridden by specifying --root with a
+different path.
 
 The files installed will be:
 
@@ -108,9 +116,9 @@ The files installed will be:
 2.1.4 Packaging the kernel
 --------------------------
 
-kernel-gen is also able to generate a tarball containing all the files that would be installed (see
-§ 2.1.3 Installing the generated kernel and initramfs); this can be used to build a kernel package
-for a different system.
+kernel-gen is also able to generate a tarball containing all the files that
+would be installed (see § 2.1.3 Installing the generated kernel and initramfs);
+this can be used to build a kernel package for a different system.
 
 TODO: generate a Portage binary package.
 
