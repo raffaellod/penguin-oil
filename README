@@ -39,8 +39,8 @@ kernel-lsext
    installed them.
 
 
-2.1 Using kernel-gen
---------------------
+2.1. Using kernel-gen
+---------------------
 
 Prior to running kernel-gen, a kernel source code folder must be configured
 (make menuconfig). Once that’s done, kernel-gen can be directed to the correct
@@ -48,8 +48,8 @@ folder by either creating a symlink to it at /usr/src/linux, or by passing a
 --source argument.
 
 
-2.1.1 Building the kernel
--------------------------
+2.1.1. Building the kernel
+--------------------------
 
 kernel-gen will build the selected kernel using as much of the Portage’s
 configuration as possible (e.g. distcc settings, make flags).
@@ -63,8 +63,8 @@ modules to make them compatible with the just-built image, unless
 --no-rebuildmods is specified.
 
 
-2.1.2 Building an initramfs
----------------------------
+2.1.2. Building an initramfs
+----------------------------
 
 Perhaps the most useful feature of kernel-gen is its ability to rebuild an
 initramfs to include the in-tree an external kernel modules that have been just
@@ -96,8 +96,8 @@ When debugging the initramfs’s build program, passing the argument
 before it is packaged.
 
 
-2.1.3 Installing the generated kernel and initramfs
----------------------------------------------------
+2.1.3. Installing the generated kernel and initramfs
+----------------------------------------------------
 
 Unless instructed not to by using the --no-install command line argument,
 kernel-gen will install the generated kernel and initramfs to what Portage
@@ -113,8 +113,8 @@ The files installed will be:
 •  Kernel in-tree and external modules (e.g. /lib/modules/3.10.2)
 
 
-2.1.4 Packaging the kernel
---------------------------
+2.1.4. Packaging the kernel
+---------------------------
 
 kernel-gen is also able to generate a tarball containing all the files that
 would be installed (see § 2.1.3 Installing the generated kernel and initramfs);
