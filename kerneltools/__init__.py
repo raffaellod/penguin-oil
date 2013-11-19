@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8; mode: python; tab-width: 3 -*-
+# -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
 # Copyright 2013
 # Raffaello D. Di Napoli

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8; mode: python; tab-width: 3 -*-
+# -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
 # Copyright 2012, 2013
 # Raffaello D. Di Napoli
@@ -36,91 +36,91 @@ import sys
 # __main__
 
 if __name__ == '__main__':
-	import os
-	import sys
-	# Get the full path of this script.
-	sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
-	# Setup the PATH environment variable to load kerneltools.
-	sys.path.append(sDir)
-	import kerneltools
+   import os
+   import sys
+   # Get the full path of this script.
+   sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
+   # Setup the PATH environment variable to load kerneltools.
+   sys.path.append(sDir)
+   import kerneltools
 
-	# Set option defaults.
-	sPArch = None
-	sIrfSourcePath = True
-	bIrfDebug = False
-	bInstall = True
-	sPackageFileName = None
-	bRebuildModules = True
-	sRoot = None
-	sSourcePath = os.getcwd()
+   # Set option defaults.
+   sPArch = None
+   sIrfSourcePath = True
+   bIrfDebug = False
+   bInstall = True
+   sPackageFileName = None
+   bRebuildModules = True
+   sRoot = None
+   sSourcePath = os.getcwd()
 
-	# Scan the command line.
-	for sArg in sys.argv[1:]:
-		# Discard this argument.
-		if sArg == '-a' or sArg.startswith('--arch='):
-			sPArch = re.sub(r'[^=]+=', '', sArg)
-		elif sArg == '-i' or sArg.startswith('--initramfs='):
-			sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-		elif sArg == '--initramfs-debug':
-			bIrfDebug = True
-		elif sArg == '--no-initramfs':
-			sIrfSourcePath = None
-		elif sArg == '--no-install':
-			bInstall = False
-		elif sArg == '--no-rebuildmods':
-			bRebuildModules = False
-		elif sArg == '-p' or sArg.startswith('--package='):
-			sPackageFileName = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-		elif sArg == '-r' or sArg.startswith('--root='):
-			sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-		elif sArg == '-s' or sArg.startswith('--source='):
-			sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-		elif sArg == '-v' or sArg == '--verbose':
-			os.environ['KG_VERBOSE'] = '1'
-		elif sArg == '--':
-			break
-		else:
-			import textwrap
-			sys.stdout.write(textwrap.dedent("""\
-				Usage: kernel-gen [options]
-				Possible options:
-				-a, --arch=ARCH		Build a kernel for the specified ARCHitecture. Defaults
-				 			to Portage's ARCH variable.
-				-i, --initramfs=DIR	Use DIR as an initramfs source directory. Defaults to
-							`${ROOT}/usr/src/initramfs'.
-				    --initramfs-debug	Dumps the contents of the generated initramfs before
-				 			packaging it.
-				    --help		Show this informative message and quit.
-				    --no-initramfs	Ignore the initramfs directory, even if existent.
-				    --no-install	Don't install the compiled kernel; also ignores --root
-				 			and --no-rebuildmods.
-				    --no-rebuildmods	Don't rebuild packages providing external modules;
-				 			delete the module files instead.
-				-p, --package=FILE	Copy the kernel to a compressed tar archive named FILE.
-				-r, --root=DIR		Use DIR as root directory. Defaults to Portage's
-				 			${ROOT}.
-				-s, --source=DIR	Select DIR as the kernel source directory. Defaults to
-				 			the current directory or `${ROOT}/usr/src/linux'.
-				-v, --verbose		Enable extended output (mainly from the package manager)
-			"""))
-			if sArg == '--help':
-				sys.exit(0)
-			else:
-				sys.exit(1)
+   # Scan the command line.
+   for sArg in sys.argv[1:]:
+      # Discard this argument.
+      if sArg == '-a' or sArg.startswith('--arch='):
+         sPArch = re.sub(r'[^=]+=', '', sArg)
+      elif sArg == '-i' or sArg.startswith('--initramfs='):
+         sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+      elif sArg == '--initramfs-debug':
+         bIrfDebug = True
+      elif sArg == '--no-initramfs':
+         sIrfSourcePath = None
+      elif sArg == '--no-install':
+         bInstall = False
+      elif sArg == '--no-rebuildmods':
+         bRebuildModules = False
+      elif sArg == '-p' or sArg.startswith('--package='):
+         sPackageFileName = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+      elif sArg == '-r' or sArg.startswith('--root='):
+         sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+      elif sArg == '-s' or sArg.startswith('--source='):
+         sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+      elif sArg == '-v' or sArg == '--verbose':
+         os.environ['KG_VERBOSE'] = '1'
+      elif sArg == '--':
+         break
+      else:
+         import textwrap
+         sys.stdout.write(textwrap.dedent("""\
+            Usage: kernel-gen [options]
+            Possible options:
+            -a, --arch=ARCH         Build a kernel for the specified ARCHitecture. Defaults
+                                    to Portage's ARCH variable.
+            -i, --initramfs=DIR     Use DIR as an initramfs source directory. Defaults to
+                                    `${ROOT}/usr/src/initramfs'.
+                --initramfs-debug   Dumps the contents of the generated initramfs before
+                                    packaging it.
+                --help              Show this informative message and quit.
+                --no-initramfs      Ignore the initramfs directory, even if existent.
+                --no-install        Don't install the compiled kernel; also ignores --root
+                                    and --no-rebuildmods.
+                --no-rebuildmods    Don't rebuild packages providing external modules;
+                                    delete the module files instead.
+            -p, --package=FILE      Copy the kernel to a compressed tar archive named FILE.
+            -r, --root=DIR          Use DIR as root directory. Defaults to Portage's
+                                    ${ROOT}.
+            -s, --source=DIR        Select DIR as the kernel source directory. Defaults to
+                                    the current directory or `${ROOT}/usr/src/linux'.
+            -v, --verbose           Enable extended output (mainly from the package manager)
+         """))
+         if sArg == '--help':
+            sys.exit(0)
+         else:
+            sys.exit(1)
 
-	gen = kerneltools.Generator(
-		sPArch = sPArch,
-		sIrfSourcePath = sIrfSourcePath,
-		bIrfDebug = bIrfDebug,
-		bRebuildModules = bRebuildModules,
-		sRoot = sRoot,
-		sSourcePath = sSourcePath
-	)
-	gen.execute()
-	if bInstall:
-		gen.install()
-	if sPackageFileName:
-		gen.package(sPackageFileName)
+   gen = kerneltools.Generator(
+      sPArch = sPArch,
+      sIrfSourcePath = sIrfSourcePath,
+      bIrfDebug = bIrfDebug,
+      bRebuildModules = bRebuildModules,
+      sRoot = sRoot,
+      sSourcePath = sSourcePath
+   )
+   gen.execute()
+   if bInstall:
+      gen.install()
+   if sPackageFileName:
+      gen.package(sPackageFileName)
 
-	sys.exit(0)
+   sys.exit(0)
 

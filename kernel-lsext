@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8; mode: python; tab-width: 3 -*-
+# -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
 # Copyright 2012, 2013
 # Raffaello D. Di Napoli
@@ -26,62 +26,62 @@
 # __main__
 
 if __name__ == '__main__':
-	import os
-	import sys
-	# Get the full path of this script.
-	sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
-	# Setup the PATH environment variable to load kerneltools.
-	sys.path.append(sDir)
-	import kerneltools
+   import os
+   import sys
+   # Get the full path of this script.
+   sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
+   # Setup the PATH environment variable to load kerneltools.
+   sys.path.append(sDir)
+   import kerneltools
 
-	bFiles = False
-	bFirmware = False
-	bModules = False
-	bPackages = False
+   bFiles = False
+   bFirmware = False
+   bModules = False
+   bPackages = False
 
-	# Scan the command line.
-	for sArg in sys.argv[1:]:
-		if sArg == '-f' or sArg == '--files':
-			bFiles = True
-		elif sArg == '-m' or sArg == '--modules':
-			bModules = True
-		elif sArg == '-p' or sArg == '--packages':
-			bPackages = True
-		elif sArg == '-w' or sArg == '--firmware':
-			bFirmware = True
-		else:
-			import textwrap
-			sys.stdout.write(textwrap.dedent("""\
-				Usage: kernel-lsext [options]
+   # Scan the command line.
+   for sArg in sys.argv[1:]:
+      if sArg == '-f' or sArg == '--files':
+         bFiles = True
+      elif sArg == '-m' or sArg == '--modules':
+         bModules = True
+      elif sArg == '-p' or sArg == '--packages':
+         bPackages = True
+      elif sArg == '-w' or sArg == '--firmware':
+         bFirmware = True
+      else:
+         import textwrap
+         sys.stdout.write(textwrap.dedent("""\
+            Usage: kernel-lsext [options]
 
-				Options:
-				-f, --files	Show matching files; default.
-				-w, --firmware	List external firmware installed by non-kernel packages.
-				    --help	Show this informative message.
-				-m, --modules	List modules installed by non-kernel packages.
-				-p, --packages	Change -m and/or -w to only show the containing packages,
-						overriding -f if not specified. If combined with -f, show
-						packages on the same line as the files they contain.
-			"""))
-			if sArg == '--help':
-				sys.exit(0)
-			else:
-				sys.exit(1)
+            Options:
+            -f, --files     Show matching files; default.
+            -w, --firmware  List external firmware installed by non-kernel packages.
+                --help      Show this informative message.
+            -m, --modules   List modules installed by non-kernel packages.
+            -p, --packages  Change -m and/or -w to only show the containing packages,
+                            overriding -f if not specified. If combined with -f, show
+                            packages on the same line as the files they contain.
+         """))
+         if sArg == '--help':
+            sys.exit(0)
+         else:
+            sys.exit(1)
 
-	eme = kerneltools.ExternalModuleEnumerator(bFirmware = bFirmware, bModules = bModules)
-	if bPackages:
-		if bFiles:
-			for sPackage, listFiles in eme.packages_and_files():
-				# Output the package and its files.
-				sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
-		else:
-			for sPackage, listFiles in eme.packages_and_files():
-				# Output packages only.
-				sys.stdout.write(sPackage + '\n')
-	else:
-		for sFilePath in eme.files():
-			# Output files only, one per line.
-			sys.stdout.write(sFilePath + '\n')
+   eme = kerneltools.ExternalModuleEnumerator(bFirmware = bFirmware, bModules = bModules)
+   if bPackages:
+      if bFiles:
+         for sPackage, listFiles in eme.packages_and_files():
+            # Output the package and its files.
+            sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
+      else:
+         for sPackage, listFiles in eme.packages_and_files():
+            # Output packages only.
+            sys.stdout.write(sPackage + '\n')
+   else:
+      for sFilePath in eme.files():
+         # Output files only, one per line.
+         sys.stdout.write(sFilePath + '\n')
 
-	sys.exit(0)
+   sys.exit(0)
 
