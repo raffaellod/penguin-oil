@@ -32,7 +32,7 @@ The kernel-tools suite comprises these components:
 kernel-gen
    Generates a kernel binary+modules and/or tarball, optionally generating an
    initramfs from a compatible self-contained initramfs-building system (such as
-   tinytium). See also § 2.1 Using kernel-gen.
+   tinytium). See also § 2.1. Using kernel-gen.
 
 kernel-lsext
    Lists external firmware and/or modules for Linux along with the packages that
@@ -56,7 +56,7 @@ configuration as possible (e.g. distcc settings, make flags).
 
 Before running make, kernel-gen will inspect the kernel configuration (.config)
 to make sure that no settings will result in the kernel being unable to use the
-initramfs, if one is to be built (see § 2.1.2 Building an initramfs).
+initramfs, if one is to be built (see § 2.1.2. Building an initramfs).
 
 After the kernel image has been generated, kernel-gen will rebuild all external
 modules to make them compatible with the just-built image, unless
@@ -117,7 +117,7 @@ The files installed will be:
 ---------------------------
 
 kernel-gen is also able to generate a tarball containing all the files that
-would be installed (see § 2.1.3 Installing the generated kernel and initramfs);
+would be installed (see § 2.1.3. Installing the generated kernel and initramfs);
 this can be used to build a kernel package for a different system.
 
 TODO: generate a Portage binary package.
