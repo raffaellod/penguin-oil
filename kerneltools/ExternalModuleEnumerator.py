@@ -72,7 +72,7 @@ class ExternalModuleEnumerator(object):
          Package.
       """
 
-      for sPackage, listFiles in self.packages_and_files(bUseSlot = False):
+      for sPackage, listFiles in self.packages_and_files(bUseSlot):
          yield sPackage
 
 
