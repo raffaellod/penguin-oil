@@ -19,7 +19,7 @@
 #---------------------------------------------------------------------------------------------------
 
 """Generates a kernel binary+modules and/or tarball, optionally generating an initramfs from a
-compatible self-contained initramfs-building system (such as tinytium).
+compatible initramfs building system such as tinytium.
 """
 
 

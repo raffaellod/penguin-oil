@@ -21,7 +21,7 @@ kernel-tools. If not, see <http://www.gnu.org/licenses/>.
 
 Kernel-tools is a set of utilities to (re-)generate a kernel binary and modules
 and/or tarball, with support for generating an initramfs from a compatible
-self-contained initramfs-building system (such as tinytium).
+initramfs building system such as tinytium.
 
 
 2. How to use
@@ -31,8 +31,8 @@ The kernel-tools suite comprises these components:
 
 kernel-gen
    Generates a kernel binary+modules and/or tarball, optionally generating an
-   initramfs from a compatible self-contained initramfs-building system (such as
-   tinytium). See also § 2.1. Using kernel-gen.
+   initramfs from a compatible initramfs building system such as tinytium. See
+   also § 2.1. Using kernel-gen.
 
 kernel-lsext
    Lists external firmware and/or modules for Linux along with the packages that
