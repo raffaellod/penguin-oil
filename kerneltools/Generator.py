@@ -169,22 +169,19 @@ class Generator(object):
 
    @staticmethod
    def modules_size(sDir):
-      """Calculates the size in bytes of the kernel modules contained in the specified directory.
+      """Calculates the size of the kernel modules contained in the specified directory.
 
       str sDir
          Directory containing kernel modules.
       int return
-         Total size of the kernel modules in sDir.
+         Total size of the kernel modules in sDir, in bytes.
       """
 
       cbModules = 0
-      # TODO: replace child process with Python code.
-      with subprocess.Popen(
-         ['find', sDir, '-name', '*.ko', '-printf', '%s\\n'],
-         stdout = subprocess.PIPE, universal_newlines = True
-      ) as procFind:
-         for sLine in procFind.stdout:
-            cbModules += int(sLine.rstrip(), 10)
+      for sDirPath, listDirNames, listFileNames in os.walk(sDir):
+         for sFileName in listFileNames:
+            if sFileName.endswith('.ko'):
+               cbModules += os.path.getsize(os.path.join(sDirPath, sFileName))
       return cbModules
 
 
