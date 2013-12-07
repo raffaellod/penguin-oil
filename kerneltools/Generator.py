@@ -407,6 +407,7 @@ class Generator(object):
       if self._m_sIrfSourcePath:
          sPrevDir = os.getcwd()
          sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
+         fileIrfArchive = None
          shutil.rmtree(sIrfWorkDir, ignore_errors = True)
          os.mkdir(sIrfWorkDir, 0o755)
          try:
@@ -469,30 +470,31 @@ class Generator(object):
                ['find', '.', '-mindepth', '1', '-printf', '%P\n'],
                stdout = subprocess.PIPE
             ) as procFind:
-               with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
+               fileIrfArchive = open(self._m_sSrcIrfArchivePath, 'wb')
+               if sIrfCompressor:
+                  fileCpioStdout = subprocess.PIPE
+               else:
+                  fileCpioStdout = fileIrfArchive
+               # Redirect cpio’s output to /dev/null, since it likes to output junk.
+               with subprocess.Popen(
+                  ['cpio', '--create', '--format', 'newc'],
+                  stdin = procFind.stdout, stdout = fileCpioStdout, stderr = self._m_fileNullOut
+               ) as procCpio:
                   if sIrfCompressor:
-                     fileCpioStdout = subprocess.PIPE
-                  else:
-                     fileCpioStdout = fileIrfArchive
-                  # Redirect cpio’s output to /dev/null, since it likes to output junk.
-                  with subprocess.Popen(
-                     ['cpio', '--create', '--format', 'newc'],
-                     stdin = procFind.stdout, stdout = fileCpioStdout, stderr = self._m_fileNullOut
-                  ) as procCpio:
-                     if sIrfCompressor:
-                        with subprocess.Popen(
-                           [sIrfCompressor, '-9'],
-                           stdin = procCpio.stdout, stdout = fileIrfArchive
-                        ) as procCompress:
-                           procFind.wait()
-                           procCpio.wait()
-                           procCompress.wait()
-                     else:
+                     with subprocess.Popen(
+                        [sIrfCompressor, '-9'],
+                        stdin = procCpio.stdout, stdout = fileIrfArchive
+                     ) as procCompress:
                         procFind.wait()
                         procCpio.wait()
-                  del fileCpioStdout
+                        procCompress.wait()
+                  else:
+                     procFind.wait()
+                     procCpio.wait()
          finally:
             self.einfo('Cleaning up initramfs ...\n')
+            if fileIrfArchive:
+               fileIrfArchive.close()
             os.chdir(sPrevDir)
             shutil.rmtree(sIrfWorkDir)
 
