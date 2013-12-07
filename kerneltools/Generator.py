@@ -236,7 +236,7 @@ class Generator(object):
 
 
    def execute(self):
-      """TODO: comment"""
+      """Invokes make to build the kernel, optionally also builds an initramfs to go with it."""
 
       # Determine the ARCH and the generated kernel file name.
       sKArch = self._m_sPArch
