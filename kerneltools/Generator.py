@@ -407,7 +407,6 @@ class Generator(object):
       if self._m_sIrfSourcePath:
          sPrevDir = os.getcwd()
          sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
-         fileIrfArchive = None
          shutil.rmtree(sIrfWorkDir, ignore_errors = True)
          os.mkdir(sIrfWorkDir, 0o755)
          try:
@@ -465,43 +464,39 @@ class Generator(object):
                      stdout = fileIrfDump, universal_newlines = True
                   )
 
-            self.einfo('Creating archive ...\n')
-            fileIrfArchive = open(self._m_sSrcIrfArchivePath, 'wb')
-            if sIrfCompressor:
-               # cpio’s output will be piped to the compressor.
-               fileCpioStdout = subprocess.PIPE
-            else:
-               # cpio will write directly to the initramfs uncompressed file.
-               fileCpioStdout = fileIrfArchive
-            # Redirect cpio’s output to /dev/null, since it likes to output junk.
-            with subprocess.Popen(
-               ['cpio', '--create', '--format', 'newc'],
-               stdout = fileCpioStdout, stderr = self._m_fileNullOut
-            ) as procCpio:
-               if sIrfCompressor:
-                  # Spawn the compressor, piping cpio’s output as its input.
-                  procCompress = subprocess.Popen(
-                     [sIrfCompressor, '-9'],
-                     stdin = procCpio.stdout, stdout = fileIrfArchive
+            # Build a list with every file name for cpio to package, relative to the current
+            # directory (sIrfWorkDir).
+            self.einfo('Collecting file names ...\n')
+            listCpioInput = []
+            for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+               for sFileName in listFileNames:
+                  listCpioInput.append(
+                     os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:]
                   )
+            sCpioInput = '\n'.join(listCpioInput)
+            del listCpioInput
+
+            self.einfo('Creating archive ...\n')
+            with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
+               # Spawn the compressor or just a cat.
+               if sIrfCompressor:
+                  tplCompressorArgs = (sIrfCompressor, '-9')
                else:
-                  # No compressor sub-process.
-                  procCompress = None
-               # Write every file name to cpio’s input, relative to the current directory
-               # (sIrfWorkDir).
-               for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
-                  for sFileName in listFileNames:
-                     procCpio.stdin.write(bytes('{}\n'.format(
-                        os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:]
-                     ), encoding = 'utf-8'))
-               # Wait for processes to complete.
-               procCpio.wait()
-               if procCompress:
-                  procCompress.wait()
+                  tplCompressorArgs = ('cat', )
+               with subprocess.Popen(
+                  tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
+               ) as procCompress:
+                  # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
+                  # since it likes to output junk.
+                  with subprocess.Popen(
+                     ('cpio', '--create', '--format', 'newc'),
+                     stdin = subprocess.PIPE,
+                     stdout = procCompress.stdin, stderr = self._m_fileNullOut
+                  ) as procCpio:
+                     # Send cpio the list of files to package.
+                     procCpio.communicate(bytes(sCpioInput, encoding = 'utf-8'))
          finally:
             self.einfo('Cleaning up initramfs ...\n')
-            if fileIrfArchive:
-               fileIrfArchive.close()
             os.chdir(sPrevDir)
             shutil.rmtree(sIrfWorkDir)
 
