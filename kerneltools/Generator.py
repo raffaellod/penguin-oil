@@ -188,6 +188,16 @@ class Generator(object):
       return cbModules
 
 
+   def should_build_initramfs(self):
+      """Returns True if an initramfs can and should be built for the kernel.
+
+      bool return
+         True if build_initramfs() should be called, or False otherwise.
+      """
+
+      return bool(self._m_sIrfSourcePath)
+
+
    def load_kernel_config(self, sConfigPath, sKernelVersion):
       """Loads the specified kernel configuration file (.config), returning the entries defined in
       it and verifying that it’s for a specific kernel version.
@@ -303,18 +313,15 @@ class Generator(object):
 
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
-         if dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
-            if self._m_sIrfSourcePath == True:
-               self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
-            if not os.path.isdir(self._m_sIrfSourcePath):
-               self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
-               self.ewarn('but no suitable initramfs source directory was specified or found.\n')
-               self.ewarn('No initramfs will be created.\n')
-               self._m_sIrfSourcePath = None
-         else:
-            if self._m_sIrfSourcePath:
-               self.eerror('\n')
-               self.eerror('The selected kernel was not configured to support initramfs/initrd.\n')
+         if not dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
+            raise Exception('The selected kernel was not configured to support initramfs/initrd')
+         if self._m_sIrfSourcePath == True:
+            self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
+         if not os.path.isdir(self._m_sIrfSourcePath):
+            self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
+            self.ewarn('but no suitable initramfs source directory was specified or found.\n')
+            self.ewarn('No initramfs will be created.\n')
+            self._m_sIrfSourcePath = None
 
       if self._m_sIrfSourcePath:
          # TODO: check that these CONFIG_ match:

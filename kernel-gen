@@ -111,7 +111,7 @@ if __name__ == '__main__':
    )
    gen.prepare()
    gen.build_kernel()
-   if sIrfSourcePath:
+   if gen.should_build_initramfs():
       gen.build_initramfs()
    if bInstall:
       gen.install()
