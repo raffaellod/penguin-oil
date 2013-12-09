@@ -71,7 +71,6 @@ class Generator(object):
       self._m_sSrcIrfArchivePath = None
       self._m_sSrcSysmapPath = None
       self._m_sTmpDir = portage.settings['PORTAGE_TMPDIR']
-      self._m_bUseDistCC = re.search(r'\bdistcc\b', portage.settings['FEATURES']) != None
 
 
    def __del__(self):
@@ -385,7 +384,7 @@ class Generator(object):
 
       # Use distcc, if enabled.
       # TODO: also add HOSTCC.
-      if self._m_bUseDistCC:
+      if re.search(r'\bdistcc\b', portage.settings['FEATURES']) != None:
          self.einfo('Distributed C compiler (distcc) enabled')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
