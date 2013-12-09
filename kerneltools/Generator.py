@@ -454,6 +454,14 @@ class Generator(object):
             for sIrfFile in os.listdir(self._m_sIrfSourcePath):
                shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
+         # Build a list with every file name for cpio to package, relative to the current
+         # directory (sIrfWorkDir).
+         self.einfo('Collecting file names ...\n')
+         listIrfContents = []
+         for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+            for sFileName in listFileNames:
+               listIrfContents.append(os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:])
+         sCpioInput = '\n'.join(listIrfContents)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
                self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
@@ -462,19 +470,12 @@ class Generator(object):
                self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
                   sIrfDumpFileName
                ))
+               # Change the file list into an invocation of ls.
+               listIrfContents[0:0] = ['ls', '-lR', '--color=always']
                subprocess.check_call(
-                  ('ls', '-lR', '--color=always'), stdout = fileIrfDump, universal_newlines = True
+                  listIrfContents, stdout = fileIrfDump, universal_newlines = True
                )
-
-         # Build a list with every file name for cpio to package, relative to the current
-         # directory (sIrfWorkDir).
-         self.einfo('Collecting file names ...\n')
-         listCpioInput = []
-         for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
-            for sFileName in listFileNames:
-               listCpioInput.append(os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:])
-         sCpioInput = '\n'.join(listCpioInput)
-         del listCpioInput
+         del listIrfContents
 
          self.einfo('Creating archive ...\n')
          with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
