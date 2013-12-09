@@ -466,31 +466,38 @@ class Generator(object):
                   )
 
             self.einfo('Creating archive ...\n')
+            fileIrfArchive = open(self._m_sSrcIrfArchivePath, 'wb')
+            if sIrfCompressor:
+               # cpio’s output will be piped to the compressor.
+               fileCpioStdout = subprocess.PIPE
+            else:
+               # cpio will write directly to the initramfs uncompressed file.
+               fileCpioStdout = fileIrfArchive
+            # Redirect cpio’s output to /dev/null, since it likes to output junk.
             with subprocess.Popen(
-               ['find', '.', '-mindepth', '1', '-printf', '%P\n'],
-               stdout = subprocess.PIPE
-            ) as procFind:
-               fileIrfArchive = open(self._m_sSrcIrfArchivePath, 'wb')
+               ['cpio', '--create', '--format', 'newc'],
+               stdout = fileCpioStdout, stderr = self._m_fileNullOut
+            ) as procCpio:
                if sIrfCompressor:
-                  fileCpioStdout = subprocess.PIPE
+                  # Spawn the compressor, piping cpio’s output as its input.
+                  procCompress = subprocess.Popen(
+                     [sIrfCompressor, '-9'],
+                     stdin = procCpio.stdout, stdout = fileIrfArchive
+                  )
                else:
-                  fileCpioStdout = fileIrfArchive
-               # Redirect cpio’s output to /dev/null, since it likes to output junk.
-               with subprocess.Popen(
-                  ['cpio', '--create', '--format', 'newc'],
-                  stdin = procFind.stdout, stdout = fileCpioStdout, stderr = self._m_fileNullOut
-               ) as procCpio:
-                  if sIrfCompressor:
-                     with subprocess.Popen(
-                        [sIrfCompressor, '-9'],
-                        stdin = procCpio.stdout, stdout = fileIrfArchive
-                     ) as procCompress:
-                        procFind.wait()
-                        procCpio.wait()
-                        procCompress.wait()
-                  else:
-                     procFind.wait()
-                     procCpio.wait()
+                  # No compressor sub-process.
+                  procCompress = None
+               # Write every file name to cpio’s input, relative to the current directory
+               # (sIrfWorkDir).
+               for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+                  for sFileName in listFileNames:
+                     procCpio.stdin.write(bytes('{}\n'.format(
+                        os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:]
+                     ), encoding = 'utf-8'))
+               # Wait for processes to complete.
+               procCpio.wait()
+               if procCompress:
+                  procCompress.wait()
          finally:
             self.einfo('Cleaning up initramfs ...\n')
             if fileIrfArchive:
