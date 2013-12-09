@@ -110,6 +110,8 @@ if __name__ == '__main__':
       sSourcePath = sSourcePath
    )
    gen.execute()
+   if sIrfSourcePath:
+      gen.build_initramfs()
    if bInstall:
       gen.install()
    if sPackageFileName:

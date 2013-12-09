@@ -47,6 +47,7 @@ class Generator(object):
 
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
+      self._m_sIrfCompressor = None
       self._m_sIrfComprExt = ''
       self._m_bIrfDebug = bIrfDebug
       self._m_sIrfSourcePath = sIrfSourcePath
@@ -316,35 +317,34 @@ class Generator(object):
          #   +DEVTMPFS
 
          # Check for an enabled initramfs compression method.
-         sIrfCompressor = None
          listEnabledIrfCompressors = []
          for sCompressor in 'LZO', 'LZMA', 'BZIP2', 'GZIP':
             if dictKernelConfig.get('CONFIG_RD_' + sCompressor):
                if sCompressor == sKernelCompressor:
                   # We can pick the same compression for kernel image and initramfs.
-                  sIrfCompressor = sKernelCompressor
+                  self._m_sIrfCompressor = sKernelCompressor
                   break
                # Not the same as the kernel image, but make a note of this in case the condition
                # above is never satisfied.
                listEnabledIrfCompressors.append(sCompressor)
          # If this is still None, pick the first enabled compression method, if any.
-         if not sIrfCompressor and listEnabledIrfCompressors:
-            sIrfCompressor = listEnabledIrfCompressors[0]
-         if sIrfCompressor:
+         if not self._m_sIrfCompressor and listEnabledIrfCompressors:
+            self._m_sIrfCompressor = listEnabledIrfCompressors[0]
+         if self._m_sIrfCompressor:
             # Pick the corresponding filename extension.
             self._m_sIrfComprExt = {
                'BZIP2': '.bz2',
                'GZIP' : '.gz',
                'LZMA' : '.lzma',
                'LZO'  : '.lzo',
-            }[sIrfCompressor]
+            }[self._m_sIrfCompressor]
             # Pick the corresponding compressor executable.
-            sIrfCompressor = {
+            self._m_sIrfCompressor = {
                'BZIP2': 'bzip2',
                'GZIP' : 'gzip',
                'LZMA' : 'lzma',
                'LZO'  : 'lzop',
-            }[sIrfCompressor]
+            }[self._m_sIrfCompressor]
          self._m_sSrcIrfArchivePath = os.path.join(
             self._m_sTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
          )
@@ -404,103 +404,102 @@ class Generator(object):
                   stdout = self._m_fileNullOut
                )
 
-      if self._m_sIrfSourcePath:
-         sPrevDir = os.getcwd()
-         sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
-         shutil.rmtree(sIrfWorkDir, ignore_errors = True)
-         os.mkdir(sIrfWorkDir, 0o755)
-         try:
-            os.chdir(sIrfWorkDir)
 
-            self.einfo('Generating initramfs\n')
+   def build_initramfs(self):
+      """TODO: comment."""
+
+      if not self._m_sIrfSourcePath:
+         raise Exception('No initramfs source path specified')
+
+      self.einfo('Generating initramfs\n')
+      self.eindent()
+
+      sPrevDir = os.getcwd()
+      sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
+      shutil.rmtree(sIrfWorkDir, ignore_errors = True)
+      os.mkdir(sIrfWorkDir, 0o755)
+      try:
+         os.chdir(sIrfWorkDir)
+
+         self.einfo('Adding kernel modules ...\n')
+         subprocess.check_call(
+            self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
+            stdout = self._m_fileNullOut
+         )
+         # TODO: more proper way of excluding modules from the initramfs.
+#        rm -rf sIrfWorkDir/lib*/modules/*/kernel/sound
+
+         self.einfo('Adding out-of-tree firmware ...\n')
+         # Create the folder beforehand; it not needed, we'll delete it later.
+         sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
+         sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
+         eme = ExternalModuleEnumerator(bFirmware = True, bModules = False)
+         for sSrcExtFirmwarePath in eme.files():
+            sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
+            os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
+            # Copy the firmware file.
+            shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
+
+         sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
+         if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
+            # The initramfs has a build script; invoke it.
+            self.einfo('Invoking initramfs custom build script\n')
             self.eindent()
+            # ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
+            subprocess.check_call((sIrfBuild, ))
+            self.eoutdent()
+         else:
+            # No build script; just copy every file.
+            self.einfo('Adding source files ...\n')
+            for sIrfFile in os.listdir(self._m_sIrfSourcePath):
+               shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
-            self.einfo('Adding kernel modules ...\n')
-            subprocess.check_call(
-               self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
-               stdout = self._m_fileNullOut
+         if self._m_bIrfDebug:
+            sIrfDumpFileName = os.path.join(
+               self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
             )
-            # TODO: more proper way of excluding modules from the initramfs.
-#           rm -rf sIrfWorkDir/lib*/modules/*/kernel/sound
-
-            self.einfo('Adding out-of-tree firmware ...\n')
-            # Create the folder beforehand; it not needed, we'll delete it later.
-            sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
-            sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
-            eme = ExternalModuleEnumerator(bFirmware = True, bModules = False)
-            for sSrcExtFirmwarePath in eme.files():
-               sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
-               os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
-               # Copy the firmware file.
-               shutil.copy2(
-                  os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath),
-                  sDstExtFirmwarePath
+            with open(sIrfDumpFileName, 'w') as fileIrfDump:
+               self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
+                  sIrfDumpFileName
+               ))
+               subprocess.check_call(
+                  ('ls', '-lR', '--color=always'), stdout = fileIrfDump, universal_newlines = True
                )
 
-            sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
-            if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
-               # The initramfs has a build script; invoke it.
-               self.einfo('Invoking initramfs custom build script\n')
-               self.eindent()
-               # ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
-               subprocess.check_call((sIrfBuild, ))
-               self.eoutdent()
+         # Build a list with every file name for cpio to package, relative to the current
+         # directory (sIrfWorkDir).
+         self.einfo('Collecting file names ...\n')
+         listCpioInput = []
+         for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+            for sFileName in listFileNames:
+               listCpioInput.append(os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:])
+         sCpioInput = '\n'.join(listCpioInput)
+         del listCpioInput
+
+         self.einfo('Creating archive ...\n')
+         with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
+            # Spawn the compressor or just a cat.
+            if self._m_sIrfCompressor:
+               tplCompressorArgs = (self._m_sIrfCompressor, '-9')
             else:
-               # No build script; just copy every file.
-               self.einfo('Adding source files ...\n')
-               for sIrfFile in os.listdir(self._m_sIrfSourcePath):
-                  shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
-
-            if self._m_bIrfDebug:
-               sIrfDumpFileName = os.path.join(
-                  self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
-               )
-               with open(sIrfDumpFileName, 'w') as fileIrfDump:
-                  self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
-                     sIrfDumpFileName
-                  ))
-                  subprocess.check_call(
-                     ('ls', '-lR', '--color=always'),
-                     stdout = fileIrfDump, universal_newlines = True
-                  )
-
-            # Build a list with every file name for cpio to package, relative to the current
-            # directory (sIrfWorkDir).
-            self.einfo('Collecting file names ...\n')
-            listCpioInput = []
-            for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
-               for sFileName in listFileNames:
-                  listCpioInput.append(
-                     os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:]
-                  )
-            sCpioInput = '\n'.join(listCpioInput)
-            del listCpioInput
-
-            self.einfo('Creating archive ...\n')
-            with open(self._m_sSrcIrfArchivePath, 'wb') as fileIrfArchive:
-               # Spawn the compressor or just a cat.
-               if sIrfCompressor:
-                  tplCompressorArgs = (sIrfCompressor, '-9')
-               else:
-                  tplCompressorArgs = ('cat', )
+               tplCompressorArgs = ('cat', )
+            with subprocess.Popen(
+               tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
+            ) as procCompress:
+               # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
+               # since it likes to output junk.
                with subprocess.Popen(
-                  tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
-               ) as procCompress:
-                  # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
-                  # since it likes to output junk.
-                  with subprocess.Popen(
-                     ('cpio', '--create', '--format', 'newc'),
-                     stdin = subprocess.PIPE,
-                     stdout = procCompress.stdin, stderr = self._m_fileNullOut
-                  ) as procCpio:
-                     # Send cpio the list of files to package.
-                     procCpio.communicate(bytes(sCpioInput, encoding = 'utf-8'))
-         finally:
-            self.einfo('Cleaning up initramfs ...\n')
-            os.chdir(sPrevDir)
-            shutil.rmtree(sIrfWorkDir)
+                  ('cpio', '--create', '--format', 'newc'),
+                  stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
+               ) as procCpio:
+                  # Send cpio the list of files to package.
+                  procCpio.communicate(bytes(sCpioInput, encoding = 'utf-8'))
+      finally:
+         self.einfo('Cleaning up initramfs ...\n')
+         os.chdir(sPrevDir)
+         shutil.rmtree(sIrfWorkDir)
 
-         self.eoutdent()
+      self.eoutdent()
 
 
    def install(self):
