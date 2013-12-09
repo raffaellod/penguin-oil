@@ -109,7 +109,8 @@ if __name__ == '__main__':
       sRoot = sRoot,
       sSourcePath = sSourcePath
    )
-   gen.execute()
+   gen.prepare()
+   gen.build_kernel()
    if sIrfSourcePath:
       gen.build_initramfs()
    if bInstall:

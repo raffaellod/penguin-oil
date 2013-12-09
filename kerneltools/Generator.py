@@ -45,12 +45,14 @@ class Generator(object):
    ):
       """Constructor. TODO: comment"""
 
+      self._m_sCrossCompiler = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
       self._m_sIrfCompressor = None
       self._m_sIrfComprExt = ''
       self._m_bIrfDebug = bIrfDebug
       self._m_sIrfSourcePath = sIrfSourcePath
+      self._m_sKArch = None
       self._m_listKMakeArgs = ['make', '-C', sSourcePath]
       self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
       if sPArch == None:
@@ -236,23 +238,25 @@ class Generator(object):
       return dictKernelConfig
 
 
-   def execute(self):
+   def prepare(self):
       """Invokes make to build the kernel, optionally also builds an initramfs to go with it."""
 
+      self.einfo('Preparing to build kernel ...\n')
+
       # Determine the ARCH and the generated kernel file name.
-      sKArch = self._m_sPArch
+      self._m_sKArch = self._m_sPArch
       sSrcImageRelPath = None
       if self._m_sPArch == 'x86':
-         sKArch = 'i386'
+         self._m_sKArch = 'i386'
          sSrcImageRelPath = 'arch/x86/boot/bzImage'
       elif self._m_sPArch == 'amd64':
-         sKArch = 'x86_64'
+         self._m_sKArch = 'x86_64'
          sSrcImageRelPath = 'arch/x86/boot/bzImage'
       elif self._m_sPArch == 'ppc':
-         sKArch = 'powerpc'
+         self._m_sKArch = 'powerpc'
       else:
          self.eerror('Unsupported ARCH: {}\n'.format(self._m_sPArch))
-      os.environ['ARCH'] = sKArch
+      os.environ['ARCH'] = self._m_sKArch
       os.environ['PORTAGE_ARCH'] = self._m_sPArch
 
       # Ensure we have a valid kernel, and get its version.
@@ -350,21 +354,26 @@ class Generator(object):
          )
 
       # Determine if cross-compiling.
-      sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
-      os.environ['CROSS_COMPILE'] = sCrossCompiler
+      self._m_sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+      os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
 
-      self.einfo('Preparing to build:\n')
+   def build_kernel(self):
+      """Invokes make to build the kernel, optionally also builds an initramfs to go with it."""
+
+      self.einfo('Ready to build:\n')
       self.eindent()
-      self.einfo('[1;32mlinux-{}[0m ({})\n'.format(self._m_sKernelVersion, sKArch))
+      self.einfo('[1;32mlinux-{}[0m ({})\n'.format(self._m_sKernelVersion, self._m_sKArch))
       self.einfo('from [1;37m{}[0m\n'.format(self._m_sSourcePath))
 
       if self._m_sIrfSourcePath:
          # Check that a valid initramfs directory was specified.
          self._m_sIrfSourcePath = os.path.realpath(self._m_sIrfSourcePath)
          self.einfo('with initramfs from [1;37m{}[0m\n'.format(self._m_sIrfSourcePath))
-      if sCrossCompiler:
-         self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(sCrossCompiler))
+      if self._m_sCrossCompiler:
+         self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(
+            self._m_sCrossCompiler
+         ))
       self.eoutdent()
 
       # Use distcc, if enabled.
@@ -399,7 +408,7 @@ class Generator(object):
             listModulePackages = list(eme.packages())
             if listModulePackages:
                subprocess.check_call(
-                  [sCrossCompiler + 'emerge', '-q1', '--usepkg=n', '--quiet-build'] +
+                  [self._m_sCrossCompiler + 'emerge', '-q1', '--usepkg=n', '--quiet-build'] +
                      listModulePackages,
                   stdout = self._m_fileNullOut
                )
