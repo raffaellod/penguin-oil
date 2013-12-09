@@ -443,7 +443,7 @@ class Generator(object):
                self.einfo('Invoking initramfs custom build script\n')
                self.eindent()
                # ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
-               subprocess.check_call([sIrfBuild])
+               subprocess.check_call((sIrfBuild, ))
                self.eoutdent()
             else:
                # No build script; just copy every file.
@@ -460,7 +460,7 @@ class Generator(object):
                      sIrfDumpFileName
                   ))
                   subprocess.check_call(
-                     ['ls', '-lR', '--color=always'],
+                     ('ls', '-lR', '--color=always'),
                      stdout = fileIrfDump, universal_newlines = True
                   )
 
@@ -625,7 +625,7 @@ class Generator(object):
       finally:
          if bUnmountBoot:
             self.einfo('Unmounting {} ...\n'.format(sBootDir))
-            subprocess.check_call(['umount', sBootDir], stdout = self._m_fileNullOut)
+            subprocess.check_call(('umount', sBootDir), stdout = self._m_fileNullOut)
 
       self.eoutdent()
 
@@ -664,7 +664,7 @@ class Generator(object):
 
          self.einfo('Creating archive ...\n')
          subprocess.check_call(
-            ['tar', '-C', sPackageRoot, '-cjf', sPackageFileName, 'boot', 'lib'],
+            ('tar', '-C', sPackageRoot, '-cjf', sPackageFileName, 'boot', 'lib'),
             stdout = self._m_fileNullOut
          )
       finally:
