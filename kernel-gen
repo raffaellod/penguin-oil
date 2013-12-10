@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
    # Set option defaults.
    sPArch = None
-   sIrfSourcePath = True
+   sIrfSourceDirPath = True
    bIrfDebug = False
    bInstall = True
    sPackageFileName = None
@@ -53,11 +53,11 @@ if __name__ == '__main__':
       if sArg == '-a' or sArg.startswith('--arch='):
          sPArch = re.sub(r'[^=]+=', '', sArg)
       elif sArg == '-i' or sArg.startswith('--initramfs='):
-         sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sIrfSourceDirPath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '--initramfs-debug':
          bIrfDebug = True
       elif sArg == '--no-initramfs':
-         sIrfSourcePath = None
+         sIrfSourceDirPath = None
       elif sArg == '--no-install':
          bInstall = False
       elif sArg == '--no-rebuildmods':
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
    gen = kerneltools.Generator(
       sPArch = sPArch,
-      sIrfSourcePath = sIrfSourcePath,
+      sIrfSourceDirPath = sIrfSourceDirPath,
       bIrfDebug = bIrfDebug,
       bRebuildModules = bRebuildModules,
       sRoot = sRoot,
