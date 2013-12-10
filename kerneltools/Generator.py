@@ -485,10 +485,9 @@ class Generator(object):
                self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
                   sIrfDumpFileName
                ))
-               # Change the file list into an invocation of ls.
-               listIrfContents[0:0] = ['ls', '-lR', '--color=always']
                subprocess.check_call(
-                  listIrfContents, stdout = fileIrfDump, universal_newlines = True
+                  ['ls', '-lR', '--color=always'] + listIrfContents,
+                  stdout = fileIrfDump, universal_newlines = True
                )
          del listIrfContents
 
