@@ -539,20 +539,20 @@ class Generator(object):
       if not os.path.isdir(os.path.join(sBootDir, 'boot')):
          # Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
          # necessarily “/”.
-         listMountBootArgs = None
+         tplMountBootArgs = None
          with open(os.path.join(self._m_sRoot, 'etc/fstab'), 'r') as fileFsTab:
             for sLine in fileFsTab:
                # Look for a non-comment line for /boot.
                if re.match(r'^[^#]\S*\s+/boot\s', sLine):
                   # Break up the line.
                   listFields = re.split(r'\s+', sLine)
-                  listMountBootArgs = [
+                  tplMountBootArgs = (
                      'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
-                  ]
+                  )
                   break
-         if listMountBootArgs:
-            self.einfo('Mounting {} to {}\n'.format(listMountBootArgs[1], sBootDir))
-            subprocess.check_call(listMountBootArgs, stdout = self._m_fileNullOut)
+         if tplMountBootArgs:
+            self.einfo('Mounting {} to {}\n'.format(tplMountBootArgs[1], sBootDir))
+            subprocess.check_call(tplMountBootArgs, stdout = self._m_fileNullOut)
             bUnmountBoot = True
 
       # Use a try/finally construct to ensure we do unmount /boot if we mounted it.
