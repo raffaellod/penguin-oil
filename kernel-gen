@@ -39,13 +39,13 @@ if __name__ == '__main__':
 
    # Set option defaults.
    sPArch = None
-   sIrfSourceDirPath = True
+   sIrfSourceDir = True
    bIrfDebug = False
    bInstall = True
-   sPackageFileName = None
+   sPackageFile = None
    bRebuildModules = True
    sRoot = None
-   sSourcePath = os.getcwd()
+   sSourceDir = os.getcwd()
 
    # Scan the command line.
    for sArg in sys.argv[1:]:
@@ -53,21 +53,21 @@ if __name__ == '__main__':
       if sArg == '-a' or sArg.startswith('--arch='):
          sPArch = re.sub(r'[^=]+=', '', sArg)
       elif sArg == '-i' or sArg.startswith('--initramfs='):
-         sIrfSourceDirPath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sIrfSourceDir = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '--initramfs-debug':
          bIrfDebug = True
       elif sArg == '--no-initramfs':
-         sIrfSourceDirPath = None
+         sIrfSourceDir = None
       elif sArg == '--no-install':
          bInstall = False
       elif sArg == '--no-rebuildmods':
          bRebuildModules = False
       elif sArg == '-p' or sArg.startswith('--package='):
-         sPackageFileName = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sPackageFile = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-r' or sArg.startswith('--root='):
          sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-s' or sArg.startswith('--source='):
-         sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sSourceDir = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-v' or sArg == '--verbose':
          os.environ['KG_VERBOSE'] = '1'
       elif sArg == '--':
@@ -103,11 +103,11 @@ if __name__ == '__main__':
 
    gen = kerneltools.Generator(
       sPArch = sPArch,
-      sIrfSourceDirPath = sIrfSourceDirPath,
+      sIrfSourceDir = sIrfSourceDir,
       bIrfDebug = bIrfDebug,
       bRebuildModules = bRebuildModules,
       sRoot = sRoot,
-      sSourcePath = sSourcePath
+      sSourceDir = sSourceDir
    )
    gen.prepare()
    gen.build_kernel()
@@ -115,8 +115,8 @@ if __name__ == '__main__':
       gen.build_initramfs()
    if bInstall:
       gen.install()
-   if sPackageFileName:
-      gen.package(sPackageFileName)
+   if sPackageFile:
+      gen.package(sPackageFile)
 
    sys.exit(0)
 

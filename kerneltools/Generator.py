@@ -50,7 +50,7 @@ class Generator(object):
 
 
    def __init__(
-      self, sPArch, sIrfSourceDirPath, bIrfDebug, bRebuildModules, sRoot, sSourceDirPath
+      self, sPArch, sIrfSourceDir, bIrfDebug, bRebuildModules, sRoot, sSourceDir
    ):
       """Constructor. TODO: comment"""
 
@@ -60,9 +60,9 @@ class Generator(object):
       self._m_sIrfCompressor = None
       self._m_sIrfComprExt = ''
       self._m_bIrfDebug = bIrfDebug
-      self._m_sIrfSourceDirPath = sIrfSourceDirPath
+      self._m_sIrfSourceDir = sIrfSourceDir
       self._m_sKArch = None
-      self._m_listKMakeArgs = ['make', '-C', sSourceDirPath]
+      self._m_listKMakeArgs = ['make', '-C', sSourceDir]
       self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
       if sPArch == None:
          self._m_sPArch = portage.settings['ARCH']
@@ -74,10 +74,10 @@ class Generator(object):
          self._m_sRoot = self._m_sPRoot
       else:
          self._m_sRoot = sRoot
-      self._m_sSourceDirPath = sSourceDirPath
-      self._m_sSrcConfigPath = None
-      self._m_sSrcImagePath = None
-      self._m_sSrcIrfArchiveFilePath = None
+      self._m_sSourceDir = sSourceDir
+      self._m_sSrcConfigFile = None
+      self._m_sSrcImageFile = None
+      self._m_sSrcIrfArchiveFile = None
       self._m_sSrcSysmapPath = None
       self._m_sTmpDir = portage.settings['PORTAGE_TMPDIR']
 
@@ -85,10 +85,10 @@ class Generator(object):
    def __del__(self):
       """Destructor."""
 
-      if self._m_sSrcIrfArchiveFilePath:
+      if self._m_sSrcIrfArchiveFile:
          self.einfo('Cleaning up temporary files ...\n')
          try:
-            os.unlink(self._m_sSrcIrfArchiveFilePath)
+            os.unlink(self._m_sSrcIrfArchiveFile)
          except OSError:
             # Maybe the file name was initialized, but the file itself hadn’t yet been created.
             pass
@@ -169,12 +169,12 @@ class Generator(object):
          Absolute path to which the calculated paths will be relative.
       """
 
-      self._m_sDstImageFilePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
-      self._m_sDstIrfArchiveFilePath = os.path.join(sRoot, 'boot/initramfs-{}.cpio{}'.format(
+      self._m_sDstImageFile = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
+      self._m_sDstIrfArchiveFile = os.path.join(sRoot, 'boot/initramfs-{}.cpio{}'.format(
          self._m_sKernelVersion, self._m_sIrfComprExt
       ))
-      self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
-      self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
+      self._m_sDstConfigFile = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
+      self._m_sDstSysmapFile = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
       self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/' + self._m_sKernelVersion)
 
 
@@ -189,10 +189,10 @@ class Generator(object):
       """
 
       cbModules = 0
-      for sDirPath, listDirNames, listFileNames in os.walk(sDir):
+      for sBaseDir, listDirNames, listFileNames in os.walk(sDir):
          for sFileName in listFileNames:
             if sFileName.endswith('.ko'):
-               cbModules += os.path.getsize(os.path.join(sDirPath, sFileName))
+               cbModules += os.path.getsize(os.path.join(sBaseDir, sFileName))
       return cbModules
 
 
@@ -203,7 +203,7 @@ class Generator(object):
          True if build_initramfs() should be called, or False otherwise.
       """
 
-      return bool(self._m_sIrfSourceDirPath)
+      return bool(self._m_sIrfSourceDir)
 
 
    def load_kernel_config(self, sConfigPath, sKernelVersion):
@@ -239,7 +239,7 @@ class Generator(object):
                else:
                   self.eerror('This kernel needs to be configured first.\n')
                   self.eerror('Try:\n')
-                  self.eerror("  make -C '{}' menuconfig\n".format(self._m_sSourceDirPath))
+                  self.eerror("  make -C '{}' menuconfig\n".format(self._m_sSourceDir))
             else:
                match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
                if match:
@@ -280,8 +280,8 @@ class Generator(object):
       # Ensure we have a valid kernel, and get its version.
       if not self.get_kernel_version():
          # No kernel was specified: find one, first checking if the standard symlink is in place.
-         self._m_sSourceDirPath = os.path.join(self._m_sPRoot, 'usr/src/linux')
-         if not os.path.isdir(self._m_sSourceDirPath):
+         self._m_sSourceDir = os.path.join(self._m_sPRoot, 'usr/src/linux')
+         if not os.path.isdir(self._m_sSourceDir):
             self.eerror(
                'No suitable kernel source directory was found; please consider using the\n'
             )
@@ -299,13 +299,13 @@ class Generator(object):
          if not self.get_kernel_version():
             self.eerror('Unable to determine the version of the selected kernel source.\n')
 
-      self._m_sSourceDirPath = os.path.abspath(self._m_sSourceDirPath)
-      self._m_sSrcConfigPath = os.path.join(self._m_sSourceDirPath, '.config')
-      self._m_sSrcSysmapPath = os.path.join(self._m_sSourceDirPath, 'System.map')
-      os.environ['KERNEL_DIR'] = self._m_sSourceDirPath
+      self._m_sSourceDir = os.path.abspath(self._m_sSourceDir)
+      self._m_sSrcConfigFile = os.path.join(self._m_sSourceDir, '.config')
+      self._m_sSrcSysmapPath = os.path.join(self._m_sSourceDir, 'System.map')
+      os.environ['KERNEL_DIR'] = self._m_sSourceDir
       os.environ['ROOT'] = self._m_sRoot
 
-      dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, self._m_sKernelVersion)
+      dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigFile, self._m_sKernelVersion)
 
       # Get the kernel image compression method from the config file.
       sKernelCompressor = None
@@ -317,21 +317,21 @@ class Generator(object):
       # If default, or if not compressed, just use the plain image.
       if not sSrcImageRelPath or not sKernelCompressor:
          sSrcImageRelPath = 'vmlinux'
-      self._m_sSrcImagePath = os.path.join(self._m_sSourceDirPath, sSrcImageRelPath)
+      self._m_sSrcImageFile = os.path.join(self._m_sSourceDir, sSrcImageRelPath)
 
-      if self._m_sIrfSourceDirPath:
+      if self._m_sIrfSourceDir:
          # Check for initramfs/initrd support with the config file.
          if not dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
             raise Exception('The selected kernel was not configured to support initramfs/initrd')
-         if self._m_sIrfSourceDirPath == True:
-            self._m_sIrfSourceDirPath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
-         if not os.path.isdir(self._m_sIrfSourceDirPath):
+         if self._m_sIrfSourceDir == True:
+            self._m_sIrfSourceDir = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
+         if not os.path.isdir(self._m_sIrfSourceDir):
             self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
             self.ewarn('but no suitable initramfs source directory was specified or found.\n')
             self.ewarn('No initramfs will be created.\n')
-            self._m_sIrfSourceDirPath = None
+            self._m_sIrfSourceDir = None
 
-      if self._m_sIrfSourceDirPath:
+      if self._m_sIrfSourceDir:
          # TODO: check that these CONFIG_ match:
          #   +DEVTMPFS
 
@@ -359,7 +359,7 @@ class Generator(object):
                'LZMA' : 'lzma',
                'LZO'  : 'lzop',
             }[self._m_sIrfCompressor]
-         self._m_sSrcIrfArchiveFilePath = os.path.join(
+         self._m_sSrcIrfArchiveFile = os.path.join(
             self._m_sTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
          )
 
@@ -374,12 +374,12 @@ class Generator(object):
       self.einfo('Ready to build:\n')
       self.eindent()
       self.einfo('[1;32mlinux-{}[0m ({})\n'.format(self._m_sKernelVersion, self._m_sKArch))
-      self.einfo('from [1;37m{}[0m\n'.format(self._m_sSourceDirPath))
+      self.einfo('from [1;37m{}[0m\n'.format(self._m_sSourceDir))
 
-      if self._m_sIrfSourceDirPath:
+      if self._m_sIrfSourceDir:
          # Check that a valid initramfs directory was specified.
-         self._m_sIrfSourceDirPath = os.path.realpath(self._m_sIrfSourceDirPath)
-         self.einfo('with initramfs from [1;37m{}[0m\n'.format(self._m_sIrfSourceDirPath))
+         self._m_sIrfSourceDir = os.path.realpath(self._m_sIrfSourceDir)
+         self.einfo('with initramfs from [1;37m{}[0m\n'.format(self._m_sIrfSourceDir))
       if self._m_sCrossCompiler:
          self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(
             self._m_sCrossCompiler
@@ -397,8 +397,8 @@ class Generator(object):
 
 
       # Only invoke make if .config was changed since last compilation.
-      if not os.path.exists(self._m_sSrcImagePath) or \
-         os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
+      if not os.path.exists(self._m_sSrcImageFile) or \
+         os.path.getmtime(self._m_sSrcConfigFile) > os.path.getmtime(self._m_sSrcImageFile) \
       :
          self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
          subprocess.check_call(
@@ -410,7 +410,7 @@ class Generator(object):
          # kmake won’t touch the kernel image if .config doesn’t require so, which means that the
          # above test would always cause this if branch to be entered. A way to avoid this is to
          # touch the kernel image now.
-         os.utime(self._m_sSrcImagePath, None)
+         os.utime(self._m_sSrcImageFile, None)
 
          if self._m_bRebuildModules:
             self.einfo('Rebuilding kernel module packages ...\n')
@@ -427,7 +427,7 @@ class Generator(object):
    def build_initramfs(self):
       """Builds an initramfs for the kernel generated by build_kernel()."""
 
-      if not self._m_sIrfSourceDirPath:
+      if not self._m_sIrfSourceDir:
          raise Exception('No initramfs source path specified')
 
       self.einfo('Generating initramfs\n')
@@ -459,7 +459,7 @@ class Generator(object):
             # Copy the firmware file.
             shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
 
-         sIrfBuild = os.path.join(self._m_sIrfSourceDirPath, 'build')
+         sIrfBuild = os.path.join(self._m_sIrfSourceDir, 'build')
          if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
             # The initramfs has a build script; invoke it.
             self.einfo('Invoking initramfs custom build script\n')
@@ -470,16 +470,16 @@ class Generator(object):
          else:
             # No build script; just copy every file.
             self.einfo('Adding source files ...\n')
-            for sIrfFile in os.listdir(self._m_sIrfSourceDirPath):
-               shutil.copytree(os.path.join(self._m_sIrfSourceDirPath, sIrfFile), sIrfWorkDir)
+            for sIrfFile in os.listdir(self._m_sIrfSourceDir):
+               shutil.copytree(os.path.join(self._m_sIrfSourceDir, sIrfFile), sIrfWorkDir)
 
          # Build a list with every file name for cpio to package, relative to the current
          # directory (sIrfWorkDir).
          self.einfo('Collecting file names ...\n')
          listIrfContents = []
-         for sDirPath, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+         for sBaseDir, listDirNames, listFileNames in os.walk(sIrfWorkDir):
             for sFileName in listFileNames:
-               listIrfContents.append(os.path.join(sDirPath, sFileName)[len(sIrfWorkDir) + 1:])
+               listIrfContents.append(os.path.join(sBaseDir, sFileName)[len(sIrfWorkDir) + 1:])
          sCpioInput = '\n'.join(listIrfContents)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
@@ -496,7 +496,7 @@ class Generator(object):
          del listIrfContents
 
          self.einfo('Creating archive ...\n')
-         with open(self._m_sSrcIrfArchiveFilePath, 'wb') as fileIrfArchive:
+         with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
             if self._m_sIrfCompressor:
                tplCompressorArgs = (self._m_sIrfCompressor, '-9')
@@ -567,29 +567,29 @@ class Generator(object):
          # We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
          # going to replace; this ensures we don’t leave around a leftover initramfs just because
          # it uses a different compression algorithm.
-         sDstIrfArchiveFilePathNoExt = os.path.splitext(self._m_sDstIrfArchiveFilePath)[0]
-         tplDstIrfArchiveFilePaths = tuple(filter(
+         sDstIrfArchiveFileNoExt = os.path.splitext(self._m_sDstIrfArchiveFile)[0]
+         tplDstIrfArchiveFiles = tuple(filter(
             os.path.exists,
-            (sDstIrfArchiveFilePathNoExt + sExt for sExt in self._smc_dictCompressorToExt.values())
+            (sDstIrfArchiveFileNoExt + sExt for sExt in self._smc_dictCompressorToExt.values())
          ))
-         if os.path.exists(self._m_sDstImageFilePath) or \
-            os.path.exists(self._m_sDstConfigPath) or \
-            os.path.exists(self._m_sDstSysmapPath) or \
+         if os.path.exists(self._m_sDstImageFile) or \
+            os.path.exists(self._m_sDstConfigFile) or \
+            os.path.exists(self._m_sDstSysmapFile) or \
             os.path.exists(self._m_sDstModulesDir) or \
-            tplDstIrfArchiveFilePaths \
+            tplDstIrfArchiveFiles \
          :
             self.einfo('Removing old files ...\n')
             try:
-               cbKernelImage = os.path.getsize(self._m_sDstImageFilePath)
-               os.unlink(self._m_sDstImageFilePath)
+               cbKernelImage = os.path.getsize(self._m_sDstImageFile)
+               os.unlink(self._m_sDstImageFile)
             except OSError:
                pass
             try:
-               os.unlink(self._m_sDstConfigPath)
+               os.unlink(self._m_sDstConfigFile)
             except OSError:
                pass
             try:
-               os.unlink(self._m_sDstSysmapPath)
+               os.unlink(self._m_sDstSysmapFile)
             except OSError:
                pass
             # Remove every in-tree kernel module, leaving only the out-of-tree ones.
@@ -604,17 +604,17 @@ class Generator(object):
                   ['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete']
             )
             # Delete any initramfs archive.
-            for s in tplDstIrfArchiveFilePaths:
+            for s in tplDstIrfArchiveFiles:
                cbIrfArchive += os.path.getsize(s)
                os.unlink(s)
 
          self.einfo('Installing kernel image ...\n')
-         shutil.copy2(self._m_sSrcImagePath, self._m_sDstImageFilePath)
-         shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
-         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
+         shutil.copy2(self._m_sSrcImageFile, self._m_sDstImageFile)
+         shutil.copy2(self._m_sSrcConfigFile, self._m_sDstConfigFile)
+         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapFile)
          if cbKernelImage:
             self.eindent()
-            self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImageFilePath))
+            self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImageFile))
             self.eoutdent()
 
          self.einfo('Installing modules ...')
@@ -633,13 +633,13 @@ class Generator(object):
             self.einfo_sizediff('Modules', cbModules, self.modules_size(self._m_sDstModulesDir))
             self.eoutdent()
 
-         if self._m_sIrfSourceDirPath:
+         if self._m_sIrfSourceDir:
             self.einfo('Installing initramfs ...\n')
-            shutil.copy2(self._m_sSrcIrfArchiveFilePath, self._m_sDstIrfArchiveFilePath)
+            shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
             if cbIrfArchive:
                self.eindent()
                self.einfo_sizediff(
-                  'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchiveFilePath)
+                  'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchiveFile)
                )
                self.eoutdent()
       finally:
@@ -650,11 +650,11 @@ class Generator(object):
       self.eoutdent()
 
 
-   def package(self, sPackageFilePath):
+   def package(self, sPackageFile):
       """Generates a package (tarball) containing the same files that would be installed by
       install(): kernel image, modules, and optional initramfs.
 
-      str sPackageFilePath
+      str sPackageFile
          Full path of the package file that will be created.
       """
 
@@ -668,9 +668,9 @@ class Generator(object):
          self.eindent()
 
          self.einfo('Adding kernel image ...\n')
-         shutil.copy2(self._m_sSrcImagePath, self._m_sDstImageFilePath)
-         shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
-         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
+         shutil.copy2(self._m_sSrcImageFile, self._m_sDstImageFile)
+         shutil.copy2(self._m_sSrcConfigFile, self._m_sDstConfigFile)
+         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapFile)
 
          self.einfo('Adding modules ...\n')
          subprocess.check_call(
@@ -678,13 +678,13 @@ class Generator(object):
             stdout = self._m_fileNullOut
          )
 
-         if self._m_sIrfSourceDirPath:
+         if self._m_sIrfSourceDir:
             self.einfo('Adding initramfs ...\n')
-            shutil.copy2(self._m_sSrcIrfArchiveFilePath, self._m_sDstIrfArchiveFilePath)
+            shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
 
          self.einfo('Creating archive ...\n')
          subprocess.check_call(
-            ('tar', '-C', sPackageRoot, '-cjf', sPackageFilePath, 'boot', 'lib'),
+            ('tar', '-C', sPackageRoot, '-cjf', sPackageFile, 'boot', 'lib'),
             stdout = self._m_fileNullOut
          )
       finally:
