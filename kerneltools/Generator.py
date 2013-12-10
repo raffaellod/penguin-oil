@@ -134,16 +134,10 @@ class Generator(object):
       elif iPrevSize == 0:
          self.einfo('{} size is {} KiB\n'.format(sSubject, int((iNewSize + 1023) / 1024)))
       else:
-         if iNewSize > iPrevSize:
-            sPlusSign = '+'
-         else:
-            # A minus will be printed as part of the number.
-            sPlusSign = ''
-         self.einfo('{} size changed from {} KiB to {} KiB ({}{}%)\n'.format(
+         self.einfo('{} size changed from {} KiB to {} KiB ({:+}%)\n'.format(
             sSubject,
             int((iPrevSize + 1023) / 1024),
             int((iNewSize + 1023) / 1024),
-            sPlusSign,
             int((iNewSize - iPrevSize) * 100 / iPrevSize)
          ))
 
