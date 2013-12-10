@@ -200,11 +200,11 @@ class Generator(object):
       return bool(self._m_sIrfSourceDir)
 
 
-   def load_kernel_config(self, sConfigPath, sKernelVersion):
+   def load_kernel_config(self, sConfigFile, sKernelVersion):
       """Loads the specified kernel configuration file (.config), returning the entries defined in
       it and verifying that it’s for a specific kernel version.
 
-      str sConfigPath
+      str sConfigFile
          Configuration file.
       str sKernelVersion
          Kernel version to be matched.
@@ -213,7 +213,7 @@ class Generator(object):
       """
 
       dictKernelConfig = {}
-      with open(sConfigPath, 'r') as fileConfig:
+      with open(sConfigFile, 'r') as fileConfig:
          iLine = 1
          bConfigVersionFound = False
          for sLine in fileConfig:
