@@ -40,6 +40,15 @@ class Generator(object):
    compatible self-contained initramfs-building system (such as tinytium).
    """
 
+   # Maps each .config compression program with the common extension for that file type.
+   _smc_dictCompressorToExt = {
+      'BZIP2': '.bz2',
+      'GZIP' : '.gz',
+      'LZMA' : '.lzma',
+      'LZO'  : '.lzo',
+   }
+
+
    def __init__(
       self, sPArch, sIrfSourceDirPath, bIrfDebug, bRebuildModules, sRoot, sSourcePath
    ):
@@ -342,12 +351,7 @@ class Generator(object):
             self._m_sIrfCompressor = listEnabledIrfCompressors[0]
          if self._m_sIrfCompressor:
             # Pick the corresponding filename extension.
-            self._m_sIrfComprExt = {
-               'BZIP2': '.bz2',
-               'GZIP' : '.gz',
-               'LZMA' : '.lzma',
-               'LZO'  : '.lzo',
-            }[self._m_sIrfCompressor]
+            self._m_sIrfComprExt = self._smc_dictCompressorToExt[self._m_sIrfCompressor]
             # Pick the corresponding compressor executable.
             self._m_sIrfCompressor = {
                'BZIP2': 'bzip2',
@@ -563,14 +567,16 @@ class Generator(object):
          # We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
          # going to replace; this ensures we don’t leave around a leftover initramfs just because
          # it uses a different compression algorithm.
-         listDstIrfArchivePaths = glob.glob(
-            os.path.splitext(self._m_sDstIrfArchivePath)[0] + '.*'
-         )
+         sDstIrfArchiveFilePathNoExt = os.path.splitext(self._m_sDstIrfArchivePath)[0]
+         tplDstIrfArchiveFilePaths = tuple(filter(
+            os.path.exists,
+            (sDstIrfArchiveFilePathNoExt + sExt for sExt in self._smc_dictCompressorToExt.values())
+         ))
          if os.path.exists(self._m_sDstImagePath) or \
             os.path.exists(self._m_sDstConfigPath) or \
             os.path.exists(self._m_sDstSysmapPath) or \
             os.path.exists(self._m_sDstModulesDir) or \
-            listDstIrfArchivePaths \
+            tplDstIrfArchiveFilePaths \
          :
             self.einfo('Removing old files ...\n')
             try:
@@ -598,7 +604,7 @@ class Generator(object):
                   ['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete']
             )
             # Delete any initramfs archive.
-            for s in listDstIrfArchivePaths:
+            for s in tplDstIrfArchiveFilePaths:
                cbIrfArchive += os.path.getsize(s)
                os.unlink(s)
 
