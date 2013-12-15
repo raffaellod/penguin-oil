@@ -64,13 +64,13 @@ class Generator(object):
       self._m_sKArch = None
       self._m_listKMakeArgs = ['make', '-C', sSourceDir]
       self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
-      if sPArch == None:
+      if sPArch is None:
          self._m_sPArch = portage.settings['ARCH']
       else:
          self._m_sPArch = sPArch
       self._m_sPRoot = portage.settings['EROOT']
       self._m_bRebuildModules = bRebuildModules
-      if sRoot == None:
+      if sRoot is None:
          self._m_sRoot = self._m_sPRoot
       else:
          self._m_sRoot = sRoot
