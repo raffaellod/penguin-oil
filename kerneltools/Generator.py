@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012, 2013
+# Copyright 2012, 2013, 2014
 # Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
@@ -439,8 +439,21 @@ class Generator(object):
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
             stdout = self._m_fileNullOut
          )
-         # TODO: more proper way of excluding modules from the initramfs.
-#        rm -rf sIrfWorkDir/lib*/modules/*/kernel/sound
+         # TODO: configuration-driven exclusion of modules from the initramfs.
+         setExcludedModDirs = set([
+            'sound'
+         ])
+         # Equivalent to executing:
+         #    rm -rf sIrfWorkDir/lib*/modules/*/kernel/{${setExcludedModDirs}}
+         for sDir in os.listdir(sIrfWorkDir):
+            if sDir.startswith('lib'):
+               sModulesDir = os.path.join(sIrfWorkDir, sDir, 'modules')
+               for sDir in os.listdir(sModulesDir):
+                  sKernelModulesDir = os.path.join(sModulesDir, sDir, 'kernel')
+                  for sDir in setExcludedModDirs:
+                     sDir = os.path.join(sKernelModulesDir, sDir)
+                     # Recursively remove the excluded directory.
+                     shutil.rmtree(sDir, ignore_errors = True)
 
          self.einfo('Adding out-of-tree firmware ...\n')
          # Create the folder beforehand; it not needed, we'll delete it later.
