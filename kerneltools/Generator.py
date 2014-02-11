@@ -441,6 +441,8 @@ class Generator(object):
          )
          # TODO: configuration-driven exclusion of modules from the initramfs.
          setExcludedModDirs = set([
+            'arch/x86/kvm',
+            'drivers/bluetooth',
             'sound'
          ])
          # Equivalent to executing:
