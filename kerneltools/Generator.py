@@ -443,7 +443,10 @@ class Generator(object):
          setExcludedModDirs = set([
             'arch/x86/kvm',
             'drivers/bluetooth',
-            'sound'
+            'drivers/media',
+            'net/bluetooth',
+            'sound',
+            'vhost',
          ])
          # Equivalent to executing:
          #    rm -rf sIrfWorkDir/lib*/modules/*/kernel/{${setExcludedModDirs}}
