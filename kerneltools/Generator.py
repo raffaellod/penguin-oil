@@ -445,6 +445,7 @@ class Generator(object):
             'drivers/bluetooth',
             'drivers/media',
             'net/bluetooth',
+            'net/netfilter',
             'sound',
             'vhost',
          ])
