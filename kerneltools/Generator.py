@@ -266,14 +266,12 @@ class Generator(object):
 
       dictKernelConfig = {}
       with open(sConfigFile, 'r') as fileConfig:
-         iLine = 1
          bConfigVersionFound = False
-         for sLine in fileConfig:
+         for iLine, sLine in enumerate(fileConfig, start = 1):
             if not bConfigVersionFound:
                # In the first 5 lines, expect to find a line that indicates the kernel has already
                # been configured.
                if iLine < 5:
-                  iLine += 1
                   # Match: “Linux/i386 2.6.37 Kernel Configuration”.
                   match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration', sLine)
                   if not match:
