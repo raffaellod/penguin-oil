@@ -33,6 +33,59 @@ from . import ExternalModuleEnumerator
 
 
 ####################################################################################################
+# Compressor
+
+class Compressor(object):
+   """Stores information about an external compressor program."""
+
+   def __init__(self, sConfigName, sProg, sExt):
+      """Constructor.
+
+      str sConfig
+         Name of the compressor as per Linux’s .config file.
+      str sProg
+         Name of the program to execute.
+      str sExt
+         Default file name extension for files compressed by this program.
+      """
+
+      self._m_sConfigName = sConfigName
+      self._m_sExt = sExt
+      self._m_sProg = sProg
+
+
+   def config_name(self):
+      """Returns the name of the compressor as per Linux’s .config file.
+
+      str return
+         Compressor name.
+      """
+
+      return self._m_sConfigName
+
+
+   def file_name_ext(self):
+      """Returns the default file name extension for files compressed by this program.
+
+      str return
+         File name extension, including the dot.
+      """
+
+      return self._m_sExt
+
+
+   def prog_name(self):
+      """Returns the file name of the compressor program.
+
+      str return
+         Compressor file name.
+      """
+
+      return self._m_sProg
+
+
+
+####################################################################################################
 # Generator
 
 class Generator(object):
@@ -40,13 +93,13 @@ class Generator(object):
    compatible self-contained initramfs-building system (such as tinytium).
    """
 
-   # Maps each .config compression program with the common extension for that file type.
-   _smc_dictCompressorToExt = {
-      'BZIP2': '.bz2',
-      'GZIP' : '.gz',
-      'LZMA' : '.lzma',
-      'LZO'  : '.lzo',
-   }
+   # List of supported compressors, in order of preference.
+   _smc_listCompressors = [
+      Compressor('LZO',   'lzop',  '.lzo' ),
+      Compressor('LZMA',  'lzma',  '.lzma'),
+      Compressor('BZIP2', 'bzip2', '.bz2' ),
+      Compressor('GZIP',  'gzip',  '.gz'  ),
+   ]
 
 
    def __init__(
@@ -57,7 +110,7 @@ class Generator(object):
       self._m_sCrossCompiler = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
-      self._m_sIrfCompressor = None
+      self._m_comprIrf = None
       self._m_sIrfComprExt = ''
       self._m_bIrfDebug = bIrfDebug
       self._m_sIrfSourceDir = sIrfSourceDir
@@ -301,15 +354,15 @@ class Generator(object):
 
       dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigFile, self._m_sKernelVersion)
 
-      # Get the kernel image compression method from the config file.
-      sKernelCompressor = None
-      for sCompressor in 'LZO', 'LZMA', 'BZIP2', 'GZIP':
-         if dictKernelConfig.get('CONFIG_KERNEL_' + sCompressor):
-            sKernelCompressor = sCompressor
+      # Get compressor to use for the kernel image from the config file.
+      comprKernel = None
+      for compr in self._smc_listCompressors:
+         if dictKernelConfig.get('CONFIG_KERNEL_' + compr.config_name()):
+            comprKernel = compr
             break
 
       # If default, or if not compressed, just use the plain image.
-      if not sSrcImageRelPath or not sKernelCompressor:
+      if not sSrcImageRelPath or not comprKernel:
          sSrcImageRelPath = 'vmlinux'
       self._m_sSrcImageFile = os.path.join(self._m_sSourceDir, sSrcImageRelPath)
 
@@ -331,28 +384,21 @@ class Generator(object):
 
          # Check for an enabled initramfs compression method.
          listEnabledIrfCompressors = []
-         for sCompressor in 'LZO', 'LZMA', 'BZIP2', 'GZIP':
-            if dictKernelConfig.get('CONFIG_RD_' + sCompressor):
-               if sCompressor == sKernelCompressor:
+         for compr in self._smc_listCompressors:
+            if dictKernelConfig.get('CONFIG_RD_' + compr.config_name()):
+               if compr is comprKernel:
                   # We can pick the same compression for kernel image and initramfs.
-                  self._m_sIrfCompressor = sKernelCompressor
+                  self._m_comprIrf = comprKernel
                   break
                # Not the same as the kernel image, but make a note of this in case the condition
                # above is never satisfied.
-               listEnabledIrfCompressors.append(sCompressor)
+               listEnabledIrfCompressors.append(compr)
          # If this is still None, pick the first enabled compression method, if any.
-         if not self._m_sIrfCompressor and listEnabledIrfCompressors:
-            self._m_sIrfCompressor = listEnabledIrfCompressors[0]
-         if self._m_sIrfCompressor:
+         if not self._m_comprIrf and listEnabledIrfCompressors:
+            self._m_comprIrf = listEnabledIrfCompressors[0]
+         if self._m_comprIrf:
             # Pick the corresponding filename extension.
-            self._m_sIrfComprExt = self._smc_dictCompressorToExt[self._m_sIrfCompressor]
-            # Pick the corresponding compressor executable.
-            self._m_sIrfCompressor = {
-               'BZIP2': 'bzip2',
-               'GZIP' : 'gzip',
-               'LZMA' : 'lzma',
-               'LZO'  : 'lzop',
-            }[self._m_sIrfCompressor]
+            self._m_sIrfComprExt = self._m_comprIrf.file_name_ext()
          self._m_sSrcIrfArchiveFile = os.path.join(
             self._m_sTmpDir, 'initramfs.cpio' + self._m_sIrfComprExt
          )
@@ -511,8 +557,8 @@ class Generator(object):
          self.einfo('Creating archive ...\n')
          with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
-            if self._m_sIrfCompressor:
-               tplCompressorArgs = (self._m_sIrfCompressor, '-9')
+            if self._m_comprIrf:
+               tplCompressorArgs = (self._m_comprIrf.prog_name(), '-9')
             else:
                tplCompressorArgs = ('cat', )
             with subprocess.Popen(
@@ -574,14 +620,13 @@ class Generator(object):
          cbKernelImage = 0
          cbModules = 0
          cbIrfArchive = 0
-         # We’ll remove any initramfs-{self._m_sKernelVersion}.cpio.*, not just the one we’re
+         # We’ll remove any initramfs-${self._m_sKernelVersion}.cpio.*, not just the one we’re
          # going to replace; this ensures we don’t leave around a leftover initramfs just because
          # it uses a different compression algorithm.
          sDstIrfArchiveFileNoExt = os.path.splitext(self._m_sDstIrfArchiveFile)[0]
-         tplDstIrfArchiveFiles = tuple(filter(
-            os.path.exists,
-            (sDstIrfArchiveFileNoExt + sExt for sExt in self._smc_dictCompressorToExt.values())
-         ))
+         tplDstIrfArchiveFiles = tuple(filter(os.path.exists, [
+            sDstIrfArchiveFileNoExt + compr.file_name_ext() for compr in self._smc_listCompressors
+         ]))
          setAccessoryFilesSubst = {
             (self._m_sSrcImageFile, self._m_sDstImageFile),
             (self._m_sSrcConfigFile, self._m_sDstConfigFile),
