@@ -38,20 +38,30 @@ from . import ExternalModuleEnumerator
 class Compressor(object):
    """Stores information about an external compressor program."""
 
-   def __init__(self, sConfigName, sProg, sExt):
+   def __init__(self, sConfigName, sExt, iterCmdArgs):
       """Constructor.
 
       str sConfig
          Name of the compressor as per Linux’s .config file.
-      str sProg
-         Name of the program to execute.
       str sExt
          Default file name extension for files compressed by this program.
+      iterable(str*) iterCmdArgs
+         Command-line arguments to use to run the compressor.
       """
 
+      self._m_iterCmdArgs = iterCmdArgs
       self._m_sConfigName = sConfigName
       self._m_sExt = sExt
-      self._m_sProg = sProg
+
+
+   def cmd_args(self):
+      """Returns the command-line arguments to use to run the compressor.
+
+      iterable(str*) return
+         Command-line arguments.
+      """
+
+      return self._m_iterCmdArgs
 
 
    def config_name(self):
@@ -74,16 +84,6 @@ class Compressor(object):
       return self._m_sExt
 
 
-   def prog_name(self):
-      """Returns the file name of the compressor program.
-
-      str return
-         Compressor file name.
-      """
-
-      return self._m_sProg
-
-
 
 ####################################################################################################
 # Generator
@@ -95,10 +95,10 @@ class Generator(object):
 
    # List of supported compressors, in order of preference.
    _smc_listCompressors = [
-      Compressor('LZO',   'lzop',  '.lzo' ),
-      Compressor('LZMA',  'lzma',  '.lzma'),
-      Compressor('BZIP2', 'bzip2', '.bz2' ),
-      Compressor('GZIP',  'gzip',  '.gz'  ),
+      Compressor('LZO',   '.lzo' , ('lzop',  '-9')),
+      Compressor('LZMA',  '.lzma', ('lzma',  '-9')),
+      Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
+      Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
    ]
 
 
@@ -553,10 +553,7 @@ class Generator(object):
          self.einfo('Creating archive ...\n')
          with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
-            if self._m_comprIrf:
-               tplCompressorArgs = (self._m_comprIrf.prog_name(), '-9')
-            else:
-               tplCompressorArgs = ('cat', )
+            tplCompressorArgs = self._m_comprIrf and self._m_comprIrf.cmd_args() or ('cat', )
             with subprocess.Popen(
                tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
             ) as procCompress:
