@@ -183,7 +183,7 @@ class Generator(object):
       """
 
       cbModules = 0
-      for sBaseDir, listDirNames, listFileNames in os.walk(sDir):
+      for sBaseDir, _, listFileNames in os.walk(sDir):
          for sFileName in listFileNames:
             if sFileName.endswith('.ko'):
                cbModules += os.path.getsize(os.path.join(sBaseDir, sFileName))
@@ -490,7 +490,7 @@ class Generator(object):
          # directory (sIrfWorkDir).
          self.einfo('Collecting file names ...\n')
          listIrfContents = []
-         for sBaseDir, listDirNames, listFileNames in os.walk(sIrfWorkDir):
+         for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
             for sFileName in listFileNames:
                listIrfContents.append(os.path.join(sBaseDir, sFileName)[len(sIrfWorkDir) + 1:])
          sCpioInput = '\n'.join(listIrfContents)
