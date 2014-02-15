@@ -582,26 +582,25 @@ class Generator(object):
             os.path.exists,
             (sDstIrfArchiveFileNoExt + sExt for sExt in self._smc_dictCompressorToExt.values())
          ))
-         if os.path.exists(self._m_sDstImageFile) or \
-            os.path.exists(self._m_sDstConfigFile) or \
-            os.path.exists(self._m_sDstSysmapFile) or \
-            os.path.exists(self._m_sDstModulesDir) or \
-            tplDstIrfArchiveFiles \
+         setAccessoryFilesSubst = {
+            (self._m_sSrcImageFile, self._m_sDstImageFile),
+            (self._m_sSrcConfigFile, self._m_sDstConfigFile),
+            (self._m_sSrcSysmapPath, self._m_sDstSysmapFile),
+         }
+         if \
+            any([os.path.exists(tpl[1]) for tpl in setAccessoryFilesSubst]) or \
+            os.path.exists(self._m_sDstModulesDir) or tplDstIrfArchiveFiles \
          :
             self.einfo('Removing old files ...\n')
             try:
                cbKernelImage = os.path.getsize(self._m_sDstImageFile)
-               os.unlink(self._m_sDstImageFile)
             except OSError:
                pass
-            try:
-               os.unlink(self._m_sDstConfigFile)
-            except OSError:
-               pass
-            try:
-               os.unlink(self._m_sDstSysmapFile)
-            except OSError:
-               pass
+            for tpl in setAccessoryFilesSubst:
+               try:
+                  os.unlink(tpl[1])
+               except OSError:
+                  pass
             # Remove every in-tree kernel module, leaving only the out-of-tree ones.
             cbModules = self.modules_size(self._m_sDstModulesDir)
 
@@ -619,9 +618,8 @@ class Generator(object):
                os.unlink(s)
 
          self.einfo('Installing kernel image ...\n')
-         shutil.copy2(self._m_sSrcImageFile, self._m_sDstImageFile)
-         shutil.copy2(self._m_sSrcConfigFile, self._m_sDstConfigFile)
-         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapFile)
+         for tpl in setAccessoryFilesSubst:
+            shutil.copy2(tpl[0], tpl[1])
          if cbKernelImage:
             self.eindent()
             self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImageFile))
