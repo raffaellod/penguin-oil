@@ -102,9 +102,7 @@ class Generator(object):
    ]
 
 
-   def __init__(
-      self, sPArch, sIrfSourceDir, bIrfDebug, bRebuildModules, sRoot, sSourceDir
-   ):
+   def __init__(self, sPArch, sIrfSourceDir, bIrfDebug, bRebuildModules, sRoot, sSourceDir):
       """Constructor. TODO: comment"""
 
       self._m_sCrossCompiler = None
@@ -435,10 +433,8 @@ class Generator(object):
          os.path.getmtime(self._m_sSrcConfigFile) > os.path.getmtime(self._m_sSrcImageFile) \
       :
          self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
-         subprocess.check_call(
-            self._m_listKMakeArgs, # "${@}"
-            stdout = self._m_fileNullOut
-         )
+         # TODO: support passing custom parameters to kmake.
+         subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
          self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
 
          # kmake won’t touch the kernel image if .config doesn’t require so, which means that the
@@ -526,8 +522,8 @@ class Generator(object):
             for sIrfFile in os.listdir(self._m_sIrfSourceDir):
                shutil.copytree(os.path.join(self._m_sIrfSourceDir, sIrfFile), sIrfWorkDir)
 
-         # Build a list with every file name for cpio to package, relative to the current
-         # directory (sIrfWorkDir).
+         # Build a list with every file name for cpio to package, relative to the current directory
+         # (sIrfWorkDir).
          self.einfo('Collecting file names ...\n')
          listIrfContents = []
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
@@ -611,9 +607,9 @@ class Generator(object):
          cbKernelImage = 0
          cbModules = 0
          cbIrfArchive = 0
-         # We’ll remove any initramfs-${self._m_sKernelVersion}.cpio.*, not just the one we’re
-         # going to replace; this ensures we don’t leave around a leftover initramfs just because
-         # it uses a different compression algorithm.
+         # We’ll remove any initramfs-${self._m_sKernelVersion}.cpio.*, not just the one we’re going
+         # to replace; this ensures we don’t leave around a leftover initramfs just because it uses
+         # a different compression algorithm.
          sDstIrfArchiveFileNoExt = os.path.splitext(self._m_sDstIrfArchiveFile)[0]
          tplDstIrfArchiveFiles = tuple(filter(os.path.exists, [
             sDstIrfArchiveFileNoExt + compr.file_name_ext() for compr in self._smc_listCompressors
