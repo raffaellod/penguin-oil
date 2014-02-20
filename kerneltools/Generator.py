@@ -614,13 +614,13 @@ class Generator(object):
          tplDstIrfArchiveFiles = tuple(filter(os.path.exists, [
             sDstIrfArchiveFileNoExt + compr.file_name_ext() for compr in self._smc_listCompressors
          ]))
-         setAccessoryFilesSubst = {
+         setAccessoryFilesSubst = set([
             (self._m_sSrcImageFile, self._m_sDstImageFile),
             (self._m_sSrcConfigFile, self._m_sDstConfigFile),
             (self._m_sSrcSysmapPath, self._m_sDstSysmapFile),
-         }
+         ])
          if \
-            any([os.path.exists(tpl[1]) for tpl in setAccessoryFilesSubst]) or \
+            any(os.path.exists(sDstFilePath) for _, sDstFilePath in setAccessoryFilesSubst) or \
             os.path.exists(self._m_sDstModulesDir) or tplDstIrfArchiveFiles \
          :
             self.einfo('Removing old files ...\n')
@@ -628,9 +628,9 @@ class Generator(object):
                cbKernelImage = os.path.getsize(self._m_sDstImageFile)
             except OSError:
                pass
-            for tpl in setAccessoryFilesSubst:
+            for _, sDstFilePath in setAccessoryFilesSubst:
                try:
-                  os.unlink(tpl[1])
+                  os.unlink(sDstFilePath)
                except OSError:
                   pass
             # Remove every in-tree kernel module, leaving only the out-of-tree ones.
@@ -650,8 +650,8 @@ class Generator(object):
                os.unlink(s)
 
          self.einfo('Installing kernel image ...\n')
-         for tpl in setAccessoryFilesSubst:
-            shutil.copy2(tpl[0], tpl[1])
+         for sSrcFilePath, sDstFilePath in setAccessoryFilesSubst:
+            shutil.copy2(sSrcFilePath, sDstFilePath)
          if cbKernelImage:
             self.eindent()
             self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImageFile))
