@@ -365,7 +365,7 @@ class Generator(object):
          # Check for initramfs/initrd support with the config file.
          if not dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
             raise Exception('the selected kernel was not configured to support initramfs/initrd')
-         if self._m_sIrfSourceDir == True:
+         if self._m_sIrfSourceDir is True:
             self._m_sIrfSourceDir = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
          if not os.path.isdir(self._m_sIrfSourceDir):
             self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
@@ -420,7 +420,7 @@ class Generator(object):
 
       # Use distcc, if enabled.
       # TODO: also add HOSTCC.
-      if re.search(r'\bdistcc\b', portage.settings['FEATURES']) != None:
+      if re.search(r'\bdistcc\b', portage.settings['FEATURES']):
          self.einfo('Distributed C compiler (distcc) enabled')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
