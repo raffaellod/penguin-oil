@@ -429,6 +429,10 @@ class Generator(object):
 
 
       # Only invoke make if .config was changed since last compilation.
+      # Note that this check only works due to what we’ll do after invoking kmake (see below),
+      # because kmake won’t touch the kernel image if .config doesn’t require so, which means that
+      # .config can be still more recent than the image even after kmake completes, and this would
+      # cause this if branch to be always entered.
       if not os.path.exists(self._m_sSrcImageFile) or \
          os.path.getmtime(self._m_sSrcConfigFile) > os.path.getmtime(self._m_sSrcImageFile) \
       :
@@ -437,9 +441,7 @@ class Generator(object):
          subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
          self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
 
-         # kmake won’t touch the kernel image if .config doesn’t require so, which means that the
-         # above test would always cause this if branch to be entered. A way to avoid this is to
-         # touch the kernel image now.
+         # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
          os.utime(self._m_sSrcImageFile, None)
 
          if self._m_bRebuildModules:
