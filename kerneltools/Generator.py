@@ -200,8 +200,7 @@ class Generator(object):
       """
 
       self._m_sKernelVersion = subprocess.check_output(
-         self._m_listKMakeArgs + ['-s', 'kernelrelease'],
-         universal_newlines = True
+         self._m_listKMakeArgs + ['-s', 'kernelrelease'], universal_newlines = True
       ).rstrip()
       return self._m_sKernelVersion
 
