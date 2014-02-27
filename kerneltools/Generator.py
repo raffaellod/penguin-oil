@@ -560,6 +560,7 @@ class Generator(object):
                ) as procCpio:
                   # Send cpio the list of files to package.
                   procCpio.communicate(bytes(sCpioInput, encoding = 'utf-8'))
+               procCompress.communicate()
       finally:
          self.einfo('Cleaning up initramfs ...\n')
          os.chdir(sPrevDir)
