@@ -176,19 +176,28 @@ class Generator(object):
       raise Exception(s)
 
 
-   def einfo_sizediff(self, sSubject, iPrevSize, iNewSize):
-      """TODO: comment"""
+   def einfo_sizediff(self, sObject, cbOld, cbNew):
+      """Displays an einfo with a report on the size change (if any) of a (possibly not previously
+      existing) file or folder.
 
-      if iPrevSize == iNewSize:
-         self.einfo('{} size unchanged at {} KiB\n'.format(sSubject, int((iNewSize + 1023) / 1024)))
-      elif iPrevSize == 0:
-         self.einfo('{} size is {} KiB\n'.format(sSubject, int((iNewSize + 1023) / 1024)))
+      str sObject
+         Description of the object that was measured.
+      int cbOld
+         Size of the previous version of the object, in bytes.
+      int cbNew
+         Size of the new version of the object, in bytes.
+      """
+
+      if cbOld == cbNew:
+         self.einfo('{} size unchanged at {} KiB\n'.format(sObject, int((cbNew + 1023) / 1024)))
+      elif cbOld == 0:
+         self.einfo('{} size is {} KiB\n'.format(sObject, int((cbNew + 1023) / 1024)))
       else:
          self.einfo('{} size changed from {} KiB to {} KiB ({:+}%)\n'.format(
-            sSubject,
-            int((iPrevSize + 1023) / 1024),
-            int((iNewSize + 1023) / 1024),
-            int((iNewSize - iPrevSize) * 100 / iPrevSize)
+            sObject,
+            int((cbOld + 1023) / 1024),
+            int((cbNew + 1023) / 1024),
+            int((cbNew - cbOld) * 100 / cbOld)
          ))
 
 
