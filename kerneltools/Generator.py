@@ -349,11 +349,12 @@ class Generator(object):
       dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigFile, self._m_sKernelVersion)
 
       # Get compressor to use for the kernel image from the config file.
-      comprKernel = None
       for compr in self._smc_listCompressors:
          if dictKernelConfig.get('CONFIG_KERNEL_' + compr.config_name()):
             comprKernel = compr
             break
+      else:
+         comprKernel = None
 
       # If default, or if not compressed, just use the plain image.
       if not sSrcImageRelPath or not comprKernel:
