@@ -559,7 +559,10 @@ class Generator(object):
          self.einfo('Creating archive ...\n')
          with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
-            tplCompressorArgs = self._m_comprIrf and self._m_comprIrf.cmd_args() or ('cat', )
+            if self._m_comprIrf:
+               tplCompressorArgs = self._m_comprIrf.cmd_args()
+            else:
+               tplCompressorArgs = ('cat', )
             with subprocess.Popen(
                tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
             ) as procCompress:
