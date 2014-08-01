@@ -569,7 +569,7 @@ class Generator(object):
                # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
                # since it likes to output junk.
                with subprocess.Popen(
-                  ('cpio', '--create', '--format', 'newc'),
+                  ('cpio', '--create', '--format=newc', '--owner=0:0'),
                   stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
                ) as procCpio:
                   # Send cpio the list of files to package.
