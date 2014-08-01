@@ -541,7 +541,7 @@ class Generator(object):
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
             for sFileName in listFileNames:
                listIrfContents.append(os.path.join(sBaseDir, sFileName)[len(sIrfWorkDir) + 1:])
-         sCpioInput = '\n'.join(listIrfContents)
+         sCpioInput = '\0'.join(listIrfContents)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
                self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
@@ -569,7 +569,7 @@ class Generator(object):
                # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
                # since it likes to output junk.
                with subprocess.Popen(
-                  ('cpio', '--create', '--format=newc', '--owner=0:0'),
+                  ('cpio', '--create', '--format=newc', '--owner=0:0', '-0'),
                   stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
                ) as procCpio:
                   # Send cpio the list of files to package.
