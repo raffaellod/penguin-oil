@@ -222,9 +222,11 @@ class Generator(object):
       """
 
       self._m_sDstImageFile = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
-      self._m_sDstIrfArchiveFile = os.path.join(sRoot, 'boot/initramfs-{}.cpio{}'.format(
-         self._m_sKernelVersion, self._m_comprIrf.file_name_ext()
+      self._m_sDstIrfArchiveFile = os.path.join(sRoot, 'boot/initramfs-{}.cpio'.format(
+         self._m_sKernelVersion
       ))
+      if self._m_comprIrf:
+         self._m_sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
       self._m_sDstConfigFile = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
       self._m_sDstSysmapFile = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
       self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/' + self._m_sKernelVersion)
@@ -401,9 +403,9 @@ class Generator(object):
          # If this is still None, pick the first enabled compression method, if any.
          if not self._m_comprIrf and listEnabledIrfCompressors:
             self._m_comprIrf = listEnabledIrfCompressors[0]
-         self._m_sSrcIrfArchiveFile = os.path.join(
-            self._m_sTmpDir, 'initramfs.cpio' + self._m_comprIrf.file_name_ext()
-         )
+         self._m_sSrcIrfArchiveFile = os.path.join(self._m_sTmpDir, 'initramfs.cpio')
+         if self._m_comprIrf:
+            self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
