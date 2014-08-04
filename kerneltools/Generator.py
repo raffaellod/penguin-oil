@@ -541,8 +541,11 @@ class Generator(object):
          self.einfo('Collecting file names ...\n')
          listIrfContents = []
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
+            # Strip the work directory, changing sIrfWorkDir into ‘.’.
+            sBaseDir = sBaseDir[len(sIrfWorkDir) + 1:] or '.'
+            listIrfContents.append(sBaseDir)
             for sFileName in listFileNames:
-               listIrfContents.append(os.path.join(sBaseDir, sFileName)[len(sIrfWorkDir) + 1:])
+               listIrfContents.append(os.path.join(sBaseDir, sFileName))
          sCpioInput = '\0'.join(listIrfContents)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
