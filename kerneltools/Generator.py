@@ -112,7 +112,7 @@ class Generator(object):
       self._m_bIrfDebug = bIrfDebug
       self._m_sIrfSourceDir = sIrfSourceDir
       self._m_sKArch = None
-      self._m_listKMakeArgs = ['make', '-C', sSourceDir]
+      self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
       if sPArch is None:
          self._m_sPArch = portage.settings['ARCH']
@@ -208,9 +208,19 @@ class Generator(object):
          Kernel version reported by “make kernelrelease”. Also available as self._m_sKernelVersion.
       """
 
-      self._m_sKernelVersion = subprocess.check_output(
-         self._m_listKMakeArgs + ['-s', 'kernelrelease'], universal_newlines = True
-      ).rstrip()
+      # Ignore errors; if no source directory can be found, we’ll take care of failing.
+      with subprocess.Popen(
+         self._m_listKMakeArgs + ['-C', self._m_sSourceDir, '-s', 'kernelrelease'],
+         stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
+      ) as procMake:
+         sStdOut = procMake.communicate()[0].rstrip()
+         if procMake.returncode == 0:
+            # Store the kernel version and make the source dir permanently part of
+            # self._m_listKMakeArgs.
+            self._m_sKernelVersion = sStdOut
+            self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourceDir]
+         else:
+            self._m_sKernelVersion = None
       return self._m_sKernelVersion
 
 
