@@ -552,11 +552,11 @@ class Generator(object):
          listIrfContents = []
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
             # Strip the work directory, changing sIrfWorkDir into ‘.’.
-            sBaseDir = sBaseDir[len(sIrfWorkDir) + 1:] or '.'
-            listIrfContents.append(sBaseDir)
+            sBaseDir = sBaseDir[len(sIrfWorkDir) + 1:]
+            if sBaseDir:
+               sBaseDir += os.sep
             for sFileName in listFileNames:
-               listIrfContents.append(os.path.join(sBaseDir, sFileName))
-         sCpioInput = '\0'.join(listIrfContents)
+               listIrfContents.append(sBaseDir + sFileName)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
                self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
@@ -569,6 +569,7 @@ class Generator(object):
                   ['ls', '-lR', '--color=always'] + listIrfContents,
                   stdout = fileIrfDump, universal_newlines = True
                )
+#         byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
          del listIrfContents
 
          self.einfo('Creating archive ...\n')
@@ -587,8 +588,14 @@ class Generator(object):
                   ('cpio', '--create', '--format=newc', '--owner=0:0', '-0'),
                   stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
                ) as procCpio:
-                  # Send cpio the list of files to package.
-                  procCpio.communicate(bytes(sCpioInput, encoding = 'utf-8'))
+#                  # Send cpio the list of files to package.
+#                  procCpio.communicate(byCpioInput)
+                  # Use find . to enumerate the files for cpio to pack.
+                  with subprocess.Popen(
+                     ('find', '.', '-print0'), stdout = procCpio.stdin
+                  ) as procFind:
+                     procFind.communicate()
+                  procCpio.communicate()
                procCompress.communicate()
       finally:
          self.einfo('Cleaning up initramfs ...\n')
