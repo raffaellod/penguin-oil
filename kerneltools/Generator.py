@@ -443,7 +443,7 @@ class Generator(object):
       # Use distcc, if enabled.
       # TODO: also add HOSTCC.
       if re.search(r'\bdistcc\b', portage.settings['FEATURES']):
-         self.einfo('Distributed C compiler (distcc) enabled')
+         self.einfo('Distributed C compiler (distcc) enabled\n')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
          iOldMask = os.umask(0o002)
