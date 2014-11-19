@@ -446,7 +446,9 @@ class Generator(object):
          self.einfo('Distributed C compiler (distcc) enabled')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
-         os.makedirs(sDistCCDir, 0o755, exist_ok = True)
+         iOldMask = os.umask(0o002)
+         os.makedirs(sDistCCDir, 0o775, exist_ok = True)
+         os.umask(iOldMask)
          os.environ['DISTCC_DIR'] = sDistCCDir
 
 
