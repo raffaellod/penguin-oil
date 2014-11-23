@@ -772,4 +772,3 @@ class Generator(object):
          shutil.rmtree(sPackageRoot)
 
       self.eoutdent()
-

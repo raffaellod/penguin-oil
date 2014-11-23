@@ -22,4 +22,3 @@
 
 from .ExternalModuleEnumerator import ExternalModuleEnumerator
 from .Generator import Generator
-
