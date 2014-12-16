@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012, 2013
+# Copyright 2012, 2013, 2014
 # Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
@@ -28,14 +28,10 @@ compatible initramfs building system such as tinytium.
 # __main__
 
 if __name__ == '__main__':
+   import kerneltools
    import os
    import re
    import sys
-   # Get the full path of this script.
-   sDir = os.path.dirname(os.path.abspath(sys.argv[0]))
-   # Setup the PATH environment variable to load kerneltools.
-   sys.path.append(sDir)
-   import kerneltools
 
    # Set option defaults.
    sPArch = None
