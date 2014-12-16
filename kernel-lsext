@@ -26,47 +26,40 @@
 # __main__
 
 if __name__ == '__main__':
+   import argparse
    import kerneltools
    import os
    import sys
 
-   bFiles = False
-   bFirmware = False
-   bModules = False
-   bPackages = False
+   # Parse the command line.
+   argparser = argparse.ArgumentParser(add_help = False)
+   argparser.add_argument(
+      '-f', '--files', action = 'store_true', default = False,
+      help = 'Show matching files; default action.'
+   )
+   argparser.add_argument(
+      '-w', '--firmware', action = 'store_true', default = False,
+      help = 'List external firmware installed by non-kernel packages.'
+   )
+   argparser.add_argument(
+      '--help', action = 'help',
+      help = 'Show this informative message and exit.'
+   )
+   argparser.add_argument(
+      '-m', '--modules', action = 'store_true', default = False,
+      help = 'List modules installed by non-kernel packages.'
+   )
+   argparser.add_argument(
+      '-p', '--packages', action = 'store_true', default = False,
+      help = 'Change -m and/or -w to only show the containing packages, overriding -f if not ' +
+             'specified. If combined with -f, show packages on the same line as the files they ' +
+             'contain.'
+   )
+   args = argparser.parse_args()
 
-   # Scan the command line.
-   for sArg in sys.argv[1:]:
-      if sArg == '-f' or sArg == '--files':
-         bFiles = True
-      elif sArg == '-m' or sArg == '--modules':
-         bModules = True
-      elif sArg == '-p' or sArg == '--packages':
-         bPackages = True
-      elif sArg == '-w' or sArg == '--firmware':
-         bFirmware = True
-      else:
-         import textwrap
-         sys.stdout.write(textwrap.dedent("""\
-            Usage: kernel-lsext [options]
-
-            Options:
-            -f, --files     Show matching files; default.
-            -w, --firmware  List external firmware installed by non-kernel packages.
-                --help      Show this informative message.
-            -m, --modules   List modules installed by non-kernel packages.
-            -p, --packages  Change -m and/or -w to only show the containing packages,
-                            overriding -f if not specified. If combined with -f, show
-                            packages on the same line as the files they contain.
-         """))
-         if sArg == '--help':
-            sys.exit(0)
-         else:
-            sys.exit(1)
-
-   eme = kerneltools.ExternalModuleEnumerator(bFirmware = bFirmware, bModules = bModules)
-   if bPackages:
-      if bFiles:
+   eme = kerneltools.ExternalModuleEnumerator(bFirmware = args.firmware, bModules = args.modules)
+   if args.packages:
+      if args.files:
          for sPackage, listFiles in eme.packages_and_files():
             # Output the package and its files.
             sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
