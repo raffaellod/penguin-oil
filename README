@@ -3,7 +3,7 @@
 
 Kernel-tools is a set of utilities to (re-)generate a kernel binary and modules
 and/or tarball, with support for generating an initramfs from a compatible
-initramfs building system such as tinytium.
+initramfs building system such as Tinytium.
 
 
 2. How to use
@@ -13,7 +13,7 @@ The kernel-tools suite comprises these components:
 
 kernel-gen
    Generates a kernel binary+modules and/or tarball, optionally generating an
-   initramfs from a compatible initramfs building system such as tinytium. See
+   initramfs from a compatible initramfs building system such as Tinytium. See
    also § 2.1. Using kernel-gen.
 
 kernel-lsext
