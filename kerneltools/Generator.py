@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012, 2013, 2014
+# Copyright 2012, 2013, 2014, 2015
 # Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
@@ -30,8 +30,6 @@ import subprocess
 import sys
 from . import ExternalModuleEnumerator
 
-
-
 ####################################################################################################
 # Compressor
 
@@ -53,7 +51,6 @@ class Compressor(object):
       self._m_sConfigName = sConfigName
       self._m_sExt = sExt
 
-
    def cmd_args(self):
       """Returns the command-line arguments to use to run the compressor.
 
@@ -62,7 +59,6 @@ class Compressor(object):
       """
 
       return self._m_iterCmdArgs
-
 
    def config_name(self):
       """Returns the name of the compressor as per Linux’s .config file.
@@ -73,7 +69,6 @@ class Compressor(object):
 
       return self._m_sConfigName
 
-
    def file_name_ext(self):
       """Returns the default file name extension for files compressed by this program.
 
@@ -82,8 +77,6 @@ class Compressor(object):
       """
 
       return self._m_sExt
-
-
 
 ####################################################################################################
 # Generator
@@ -100,7 +93,6 @@ class Generator(object):
       Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
       Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
    ]
-
 
    def __init__(self, sPArch, sIrfSourceDir, bIrfDebug, bRebuildModules, sRoot, sSourceDir):
       """Constructor. TODO: comment"""
@@ -131,7 +123,6 @@ class Generator(object):
       self._m_sSrcSysmapPath = None
       self._m_sTmpDir = portage.settings['PORTAGE_TMPDIR']
 
-
    def __del__(self):
       """Destructor."""
 
@@ -144,37 +135,31 @@ class Generator(object):
             pass
       self._m_fileNullOut.close()
 
-
    def eindent(self):
       """TODO: comment"""
 
       self._m_sIndent += '  '
-
 
    def eoutdent(self):
       """TODO: comment"""
 
       self._m_sIndent = self._m_sIndent[:-2]
 
-
    def einfo(self, s):
       """TODO: comment"""
 
       sys.stdout.write(self._m_sIndent + '[I] ' + s)
-
 
    def ewarn(self, s):
       """TODO: comment"""
 
       sys.stdout.write(self._m_sIndent + '[W] ' + s)
 
-
    def eerror(self, s):
       """TODO: comment"""
 
       sys.stdout.write(self._m_sIndent + '[E] ' + s)
       raise Exception(s)
-
 
    def einfo_sizediff(self, sObject, cbOld, cbNew):
       """Displays an einfo with a report on the size change (if any) of a (possibly not previously
@@ -200,7 +185,6 @@ class Generator(object):
             int((cbNew - cbOld) * 100 / cbOld)
          ))
 
-
    def get_kernel_version(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
@@ -223,7 +207,6 @@ class Generator(object):
             self._m_sKernelVersion = None
       return self._m_sKernelVersion
 
-
    def build_dst_paths(self, sRoot):
       """Calculates the destination paths for each file to be installed/packaged.
 
@@ -240,7 +223,6 @@ class Generator(object):
       self._m_sDstConfigFile = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
       self._m_sDstSysmapFile = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
       self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/' + self._m_sKernelVersion)
-
 
    @staticmethod
    def modules_size(sDir):
@@ -259,7 +241,6 @@ class Generator(object):
                cbModules += os.path.getsize(os.path.join(sBaseDir, sFileName))
       return cbModules
 
-
    def should_build_initramfs(self):
       """Returns True if an initramfs can and should be built for the kernel.
 
@@ -268,7 +249,6 @@ class Generator(object):
       """
 
       return bool(self._m_sIrfSourceDir)
-
 
    def load_kernel_config(self, sConfigFile, sKernelVersion):
       """Loads the specified kernel configuration file (.config), returning the entries defined in
@@ -317,7 +297,6 @@ class Generator(object):
                      oValue = sValue
                   dictKernelConfig[match.group('name')] = oValue
       return dictKernelConfig
-
 
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
@@ -421,7 +400,6 @@ class Generator(object):
       self._m_sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
       os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
-
    def build_kernel(self):
       """Builds the kernel image and modules."""
 
@@ -451,7 +429,6 @@ class Generator(object):
          os.umask(iOldMask)
          os.environ['DISTCC_DIR'] = sDistCCDir
 
-
       # Only invoke make if .config was changed since last compilation.
       # Note that this check only works due to what we’ll do after invoking kmake (see below),
       # because kmake won’t touch the kernel image if .config doesn’t require so, which means that
@@ -478,7 +455,6 @@ class Generator(object):
                      listModulePackages,
                   stdout = self._m_fileNullOut
                )
-
 
    def build_initramfs(self):
       """Builds an initramfs for the kernel generated by build_kernel()."""
@@ -606,7 +582,6 @@ class Generator(object):
 
       self.eoutdent()
 
-
    def install(self):
       """Installs the kernel image, modules and optional initramfs to their respective positions
       within the root directory specified in the constructor.
@@ -728,7 +703,6 @@ class Generator(object):
             subprocess.check_call(('umount', sBootDir), stdout = self._m_fileNullOut)
 
       self.eoutdent()
-
 
    def package(self, sPackageFile):
       """Generates a package (tarball) containing the same files that would be installed by

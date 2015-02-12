@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012, 2013
+# Copyright 2012, 2013, 2015
 # Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
@@ -23,8 +23,6 @@
 import os
 import portage
 import re
-
-
 
 ####################################################################################################
 # ExternalModuleEnumerator
@@ -49,7 +47,6 @@ class ExternalModuleEnumerator(object):
       self._m_cchRoot = len(sRoot)
       self._m_sVdbPath = os.path.join(sRoot, portage.VDB_PATH)
 
-
    def files(self):
       """Enumerates all files matching the criteria specified in the constructor.
 
@@ -60,7 +57,6 @@ class ExternalModuleEnumerator(object):
       for sPackage, listFiles in self.packages_and_files(bUseSlot = False):
          for sFilePath in listFiles:
             yield sFilePath
-
 
    def packages(self, bUseSlot = True):
       """Enumerates all packages that installed files matching the criteria specified in the
@@ -74,7 +70,6 @@ class ExternalModuleEnumerator(object):
 
       for sPackage, listFiles in self.packages_and_files(bUseSlot):
          yield sPackage
-
 
    def packages_and_files(self, bUseSlot = True):
       """Enumerates all packages and/or files matching the criteria specified in the constructor.
@@ -127,8 +122,6 @@ class ExternalModuleEnumerator(object):
                      sPackageSlot = fileSlot.read().strip()
                   sPackage = re.sub(r'-[0-9].*$', ':' + sPackageSlot, sPackage)
                yield sPackage, listFiles
-
-
 
 ####################################################################################################
 # __main__
