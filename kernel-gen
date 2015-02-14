@@ -83,7 +83,7 @@ if __name__ == '__main__':
                                     and --no-rebuildmods.
                 --no-rebuildmods    Don't rebuild packages providing external modules;
                                     delete the module files instead.
-            -p, --package=FILE      Copy the kernel to a compressed tar archive named FILE.
+            -p, --package=FILE      Create a binary kernel package named FILE.
             -r, --root=DIR          Use DIR as root directory. Defaults to Portage's
                                     ${ROOT}.
             -s, --source=DIR        Select DIR as the kernel source directory. Defaults to

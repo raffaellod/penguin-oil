@@ -712,37 +712,56 @@ class Generator(object):
          Full path of the package file that will be created.
       """
 
-      sPackageRoot = os.path.join(self._m_sTmpDir, 'pkg-' + self._m_sKernelVersion)
-      shutil.rmtree(sPackageRoot, ignore_errors = True)
-      os.makedirs(os.path.join(sPackageRoot, 'lib/modules'), 0o755, exist_ok = True)
+      sRepoPath = os.path.join(self._m_sTmpDir, 'repo-' + self._m_sKernelVersion)
+      # TODO: don’t hard-code “vanilla”.
+      sEbuildFilePath = os.path.join(sRepoPath, 'sys-kernel', 'vanilla-bin')
+      shutil.rmtree(sRepoPath, ignore_errors = True)
+      os.makedirs(sEbuildFilePath, 0o755, exist_ok = True)
+      # TODO: get the kernelversion string and change it from x.y.z-string to string-bin-x.y.z .
+      sEbuildFilePath = os.path.join(
+         sEbuildFilePath, 'vanilla-bin-' + self._m_sKernelVersion + '.ebuild'
+      )
       try:
-         self.build_dst_paths(sPackageRoot)
-
-         self.einfo('Preparing kernel package\n')
+         self.einfo('Creating package ...\n')
          self.eindent()
+         dictEbuildEnv = dict(os.environ)
+         dictEbuildEnv['PKGDIR'] = sRepoPath
+         shutil.copy2('template.ebuild', sEbuildFilePath)
 
+         # Have Portage create the package installation image for the ebuild. The ebuild will output
+         # the destination path, ${D}, using a pattern specific to kernel-gen.
+         sOut = subprocess.check_output(
+            ('ebuild', sEbuildFilePath, 'clean', 'manifest', 'install'),
+            env = dictEbuildEnv, universal_newlines = True, stderr = subprocess.STDOUT
+         )
+         match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
+         sPackageRoot = match.group('D')
+
+         # Inject the package contents into ${D}.
+         self.build_dst_paths(sPackageRoot)
          self.einfo('Adding kernel image ...\n')
+         os.makedirs(os.path.join(sPackageRoot, 'boot'), 0o755, exist_ok = True)
          shutil.copy2(self._m_sSrcImageFile, self._m_sDstImageFile)
          shutil.copy2(self._m_sSrcConfigFile, self._m_sDstConfigFile)
          shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapFile)
-
          self.einfo('Adding modules ...\n')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
             stdout = self._m_fileNullOut
          )
-
          if self._m_sIrfSourceDir:
             self.einfo('Adding initramfs ...\n')
             shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
 
+         # Complete the package creation, which will grab everything that’s in ${D}.
          self.einfo('Creating archive ...\n')
          subprocess.check_call(
-            ('tar', '-C', sPackageRoot, '-cjf', sPackageFile, 'boot', 'lib'),
-            stdout = self._m_fileNullOut
+            ('ebuild', sEbuildFilePath, 'package'),
+            env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          )
       finally:
-         self.einfo('Cleaning up kernel package ...\n')
-         shutil.rmtree(sPackageRoot)
+         pass
+#         self.einfo('Cleaning up kernel package ...\n')
+#         shutil.rmtree(sRepoPath)
 
       self.eoutdent()
