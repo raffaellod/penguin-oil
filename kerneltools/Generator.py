@@ -333,10 +333,10 @@ class Generator(object):
             )
             self.eerror('\n')
             self.eerror(
-               'You can enable the [1;34msymlink[0m USE flag to keep an up-to-date ' +
+               'You can enable the \033[1;34msymlink\033[0m USE flag to keep an up-to-date ' +
                'symlink to your\n'
             )
-            self.eerror('current kernel source directory in [1;36m/usr/src/linux[0m.\n')
+            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.\n')
             self.eerror('\n')
             self.eerror('Unable to locate a kernel source directory.\n')
          if not self.get_kernel_version():
@@ -406,15 +406,15 @@ class Generator(object):
 
       self.einfo('Ready to build:\n')
       self.eindent()
-      self.einfo('[1;32mlinux-{}[0m ({})\n'.format(self._m_sKernelVersion, self._m_sKArch))
-      self.einfo('from [1;37m{}[0m\n'.format(self._m_sSourceDir))
+      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelVersion, self._m_sKArch))
+      self.einfo('from \033[1;37m{}\033[0m\n'.format(self._m_sSourceDir))
 
       if self._m_sIrfSourceDir:
          # Check that a valid initramfs directory was specified.
          self._m_sIrfSourceDir = os.path.realpath(self._m_sIrfSourceDir)
-         self.einfo('with initramfs from [1;37m{}[0m\n'.format(self._m_sIrfSourceDir))
+         self.einfo('with initramfs from \033[1;37m{}\033[0m\n'.format(self._m_sIrfSourceDir))
       if self._m_sCrossCompiler:
-         self.einfo('cross-compiled with [1;37m{}[0m toolchain\n'.format(
+         self.einfo('cross-compiled with \033[1;37m{}\033[0m toolchain\n'.format(
             self._m_sCrossCompiler
          ))
       self.eoutdent()
