@@ -198,7 +198,8 @@ class Generator(object):
          stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
       ) as procMake:
          sStdOut = procMake.communicate()[0].rstrip()
-         if procMake.returncode == 0:
+         # Expect a single line; if multiple lines are present, they must be errors.
+         if procMake.returncode == 0 and '\n' not in sStdOut:
             # Store the kernel version and make the source dir permanently part of
             # self._m_listKMakeArgs.
             self._m_sKernelVersion = sStdOut
