@@ -185,6 +185,26 @@ class Generator(object):
             int((cbNew - cbOld) * 100 / cbOld)
          ))
 
+   def get_kernel_image_path(self):
+      """Determines the path to the kernel image that make will generate.
+
+      str return
+         Absolute path to the kernel output image.
+      """
+
+      # Ignore errors; if no source directory can be found, we’ll take care of failing.
+      with subprocess.Popen(
+         self._m_listKMakeArgs + ['-s', 'image_name'],
+         stdout = subprocess.PIPE, stderr = subprocess.STDOUT, universal_newlines = True
+      ) as procMake:
+         sStdOut = procMake.communicate()[0].rstrip()
+         # Expect a single line; if multiple lines are present, they must be errors.
+         if procMake.returncode != 0:
+            self.eerror('make image_name failed')
+      if '\n' in sStdOut:
+         self.eerror('unexpected output by make image_name:\n' + sStdOut)
+      return os.path.join(self._m_sSourcePath, sStdOut)
+
    def get_kernel_version(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
@@ -306,13 +326,10 @@ class Generator(object):
 
       # Determine the ARCH and the generated kernel file name.
       self._m_sKArch = self._m_sPArch
-      sSrcImageRelPath = None
       if self._m_sPArch == 'x86':
          self._m_sKArch = 'i386'
-         sSrcImageRelPath = 'arch/x86/boot/bzImage'
       elif self._m_sPArch == 'amd64':
          self._m_sKArch = 'x86_64'
-         sSrcImageRelPath = 'arch/x86/boot/bzImage'
       elif self._m_sPArch == 'ppc':
          self._m_sKArch = 'powerpc'
       else:
@@ -358,10 +375,8 @@ class Generator(object):
       else:
          comprKernel = None
 
-      # If default, or if not compressed, just use the plain image.
-      if not sSrcImageRelPath or not comprKernel:
-         sSrcImageRelPath = 'vmlinux'
-      self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sSrcImageRelPath)
+      # Determine the location of the generated kernel image.
+      self._m_sSrcImagePath = self.get_kernel_image_path()
 
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
@@ -723,7 +738,7 @@ class Generator(object):
          sEbuildFilePath, 'vanilla-bin-' + self._m_sKernelVersion + '.ebuild'
       )
       try:
-         self.einfo('Creating package ...\n')
+         self.einfo('Creating binary package ...\n')
          self.eindent()
          dictEbuildEnv = dict(os.environ)
          dictEbuildEnv['PKGDIR'] = sRepoPath
