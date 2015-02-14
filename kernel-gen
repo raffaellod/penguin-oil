@@ -33,13 +33,13 @@ if __name__ == '__main__':
 
    # Set option defaults.
    sPArch = None
-   sIrfSourceDir = True
+   sIrfSourcePath = True
    bIrfDebug = False
    bInstall = True
    sPackageFile = None
    bRebuildModules = True
    sRoot = None
-   sSourceDir = os.getcwd()
+   sSourcePath = os.getcwd()
 
    # Scan the command line.
    for sArg in sys.argv[1:]:
@@ -47,11 +47,11 @@ if __name__ == '__main__':
       if sArg == '-a' or sArg.startswith('--arch='):
          sPArch = re.sub(r'[^=]+=', '', sArg)
       elif sArg == '-i' or sArg.startswith('--initramfs='):
-         sIrfSourceDir = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '--initramfs-debug':
          bIrfDebug = True
       elif sArg == '--no-initramfs':
-         sIrfSourceDir = None
+         sIrfSourcePath = None
       elif sArg == '--no-install':
          bInstall = False
       elif sArg == '--no-rebuildmods':
@@ -61,7 +61,7 @@ if __name__ == '__main__':
       elif sArg == '-r' or sArg.startswith('--root='):
          sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-s' or sArg.startswith('--source='):
-         sSourceDir = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
+         sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-v' or sArg == '--verbose':
          os.environ['KG_VERBOSE'] = '1'
       elif sArg == '--':
@@ -97,15 +97,15 @@ if __name__ == '__main__':
 
    gen = kerneltools.Generator(
       sPArch = sPArch,
-      sIrfSourceDir = sIrfSourceDir,
+      sIrfSourcePath = sIrfSourcePath,
       bIrfDebug = bIrfDebug,
       bRebuildModules = bRebuildModules,
       sRoot = sRoot,
-      sSourceDir = sSourceDir
+      sSourcePath = sSourcePath
    )
    gen.prepare()
    gen.build_kernel()
-   if gen.should_build_initramfs():
+   if gen.with_initramfs():
       gen.build_initramfs()
    if bInstall:
       gen.install()
