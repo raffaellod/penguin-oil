@@ -324,16 +324,16 @@ class Generator(object):
 
       self.einfo('Preparing to build kernel ...\n')
 
-      # Determine the ARCH and the generated kernel file name.
-      self._m_sKArch = self._m_sPArch
-      if self._m_sPArch == 'x86':
-         self._m_sKArch = 'i386'
-      elif self._m_sPArch == 'amd64':
-         self._m_sKArch = 'x86_64'
-      elif self._m_sPArch == 'ppc':
-         self._m_sKArch = 'powerpc'
-      else:
-         raise Exception('unsupported ARCH: {}'.format(self._m_sPArch))
+      # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
+      dictPArchToKArch = {
+         'amd64': 'x86_64',
+         'arm64': 'aarch64',
+         'm68k' : 'm68',
+         'ppc'  : 'powerpc',
+         'ppc64': 'powerpc64',
+         'x86'  : 'i386',
+      }
+      self._m_sKArch = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
       os.environ['ARCH'] = self._m_sKArch
       os.environ['PORTAGE_ARCH'] = self._m_sPArch
 
