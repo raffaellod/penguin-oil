@@ -209,12 +209,12 @@ class Generator(object):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
       str return
-         Kernel version reported by “make kernelrelease”. Also available as self._m_sKernelVersion.
+         Kernel version reported by “make kernelversion”. Also available as self._m_sKernelVersion.
       """
 
       # Ignore errors; if no source directory can be found, we’ll take care of failing.
       with subprocess.Popen(
-         self._m_listKMakeArgs + ['-C', self._m_sSourcePath, '-s', 'kernelrelease'],
+         self._m_listKMakeArgs + ['-C', self._m_sSourcePath, '-s', 'kernelversion'],
          stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
       ) as procMake:
          sStdOut = procMake.communicate()[0].rstrip()
