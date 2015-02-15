@@ -209,7 +209,7 @@ class Generator(object):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
       str return
-         Kernel version reported by “make kernelversion”. Also available as self._m_sKernelVersion.
+         Kernel version reported by “make kernelversion”.
       """
 
       # Ignore errors; if no source directory can be found, we’ll take care of failing.
@@ -220,13 +220,8 @@ class Generator(object):
          sStdOut = procMake.communicate()[0].rstrip()
          # Expect a single line; if multiple lines are present, they must be errors.
          if procMake.returncode == 0 and '\n' not in sStdOut:
-            # Store the kernel version and make the source dir permanently part of
-            # self._m_listKMakeArgs.
-            self._m_sKernelVersion = sStdOut
-            self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
-         else:
-            self._m_sKernelVersion = None
-      return self._m_sKernelVersion
+            return sStdOut
+      return None
 
    def build_dst_paths(self, sRoot):
       """Calculates the destination paths for each file to be installed/packaged.
@@ -338,7 +333,8 @@ class Generator(object):
       os.environ['PORTAGE_ARCH'] = self._m_sPArch
 
       # Ensure we have a valid kernel, and get its version.
-      if not self.get_kernel_version():
+      sKernelVersion = self.get_kernel_version()
+      if not sKernelVersion:
          # No kernel was specified: find one, first checking if the standard symlink is in place.
          self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
          if not os.path.isdir(self._m_sSourcePath):
@@ -356,8 +352,12 @@ class Generator(object):
             self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.\n')
             self.eerror('\n')
             self.eerror('Unable to locate a kernel source directory.\n')
-         if not self.get_kernel_version():
+         sKernelVersion = self.get_kernel_version()
+         if not sKernelVersion:
             raise Exception('unable to determine the version of the selected kernel source')
+      # Store the kernel version and make the source dir permanently part of self._m_listKMakeArgs.
+      self._m_sKernelVersion = sKernelVersion
+      self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
 
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
