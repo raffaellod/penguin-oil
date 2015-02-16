@@ -22,7 +22,7 @@
 
 import glob
 import os
-import portage
+import portage.package.ebuild.config as portage_config
 import re
 import shlex
 import shutil
@@ -97,6 +97,7 @@ class Generator(object):
    def __init__(self, sPArch, sIrfSourcePath, bIrfDebug, bRebuildModules, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
 
+      self._m_pconfig = portage_config.config()
       self._m_sCrossCompiler = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
@@ -105,12 +106,12 @@ class Generator(object):
       self._m_sIrfSourcePath = sIrfSourcePath
       self._m_sKArch = None
       self._m_listKMakeArgs = ['make']
-      self._m_listKMakeArgs.extend(shlex.split(portage.settings['MAKEOPTS']))
+      self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
       if sPArch is None:
-         self._m_sPArch = portage.settings['ARCH']
+         self._m_sPArch = self._m_pconfig['ARCH']
       else:
          self._m_sPArch = sPArch
-      self._m_sPRoot = portage.settings['EROOT']
+      self._m_sPRoot = self._m_pconfig['EROOT']
       self._m_bRebuildModules = bRebuildModules
       if sRoot is None:
          self._m_sRoot = self._m_sPRoot
@@ -121,7 +122,7 @@ class Generator(object):
       self._m_sSrcImagePath = None
       self._m_sSrcIrfArchiveFile = None
       self._m_sSrcSysmapPath = None
-      self._m_sTmpDir = portage.settings['PORTAGE_TMPDIR']
+      self._m_sTmpDir = self._m_pconfig['PORTAGE_TMPDIR']
 
    def __del__(self):
       """Destructor."""
@@ -436,7 +437,7 @@ class Generator(object):
 
       # Use distcc, if enabled.
       # TODO: also add HOSTCC.
-      if re.search(r'\bdistcc\b', portage.settings['FEATURES']):
+      if 'distcc' in self._m_pconfig.features:
          self.einfo('Distributed C compiler (distcc) enabled\n')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
