@@ -211,15 +211,15 @@ class Generator(object):
          Absolute path to which the calculated paths will be relative.
       """
 
-      self._m_sDstImagePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelVersion)
+      self._m_sDstImagePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelRelease)
       self._m_sDstIrfArchiveFile = os.path.join(sRoot, 'boot/initramfs-{}.cpio'.format(
-         self._m_sKernelVersion
+         self._m_sKernelRelease
       ))
       if self._m_comprIrf:
          self._m_sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
-      self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-' + self._m_sKernelVersion)
-      self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelVersion)
-      self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/' + self._m_sKernelVersion)
+      self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-'     + self._m_sKernelRelease)
+      self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelRelease)
+      self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/'     + self._m_sKernelRelease)
 
    @staticmethod
    def modules_size(sDir):
@@ -336,8 +336,7 @@ class Generator(object):
          sKernelVersion = self.get_kernel_version()
          if not sKernelVersion:
             raise Exception('unable to determine the version of the selected kernel source')
-      # Store the kernel version and make the source dir permanently part of self._m_listKMakeArgs.
-      self._m_sKernelVersion = sKernelVersion
+      # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
       self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
 
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
@@ -346,7 +345,9 @@ class Generator(object):
       os.environ['KERNEL_DIR'] = self._m_sSourcePath
       os.environ['ROOT'] = self._m_sRoot
 
-      dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, self._m_sKernelVersion)
+      # Verify that the kernel has been configured, and get its release string (= version + local).
+      dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, sKernelVersion)
+      self._m_sKernelRelease = self.kmake_get('kernelrelease')
 
       # Get compressor to use for the kernel image from the config file.
       for compr in self._smc_listCompressors:
@@ -404,7 +405,7 @@ class Generator(object):
 
       self.einfo('Ready to build:\n')
       self.eindent()
-      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelVersion, self._m_sKArch))
+      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelRelease, self._m_sKArch))
       self.einfo('from \033[1;37m{}\033[0m\n'.format(self._m_sSourcePath))
 
       if self._m_sIrfSourcePath:
@@ -436,10 +437,10 @@ class Generator(object):
       if not os.path.exists(self._m_sSrcImagePath) or \
          os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
       :
-         self.einfo('Building linux-{} ...\n'.format(self._m_sKernelVersion))
+         self.einfo('Building linux-{} ...\n'.format(self._m_sKernelRelease))
          # TODO: support passing custom parameters to kmake.
          subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
-         self.einfo('Finished building linux-{}\n'.format(self._m_sKernelVersion))
+         self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
 
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
          os.utime(self._m_sSrcImagePath, None)
@@ -464,7 +465,7 @@ class Generator(object):
       self.eindent()
 
       sPrevDir = os.getcwd()
-      sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion)
+      sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease)
       shutil.rmtree(sIrfWorkDir, ignore_errors = True)
       os.mkdir(sIrfWorkDir, 0o755)
       try:
@@ -535,7 +536,7 @@ class Generator(object):
                listIrfContents.append(sBaseDir + sFileName)
          if self._m_bIrfDebug:
             sIrfDumpFileName = os.path.join(
-               self._m_sTmpDir, 'initramfs-' + self._m_sKernelVersion + '.ls'
+               self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease + '.ls'
             )
             with open(sIrfDumpFileName, 'w') as fileIrfDump:
                self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
@@ -620,7 +621,7 @@ class Generator(object):
          cbKernelImage = 0
          cbModules = 0
          cbIrfArchive = 0
-         # We’ll remove any initramfs-${self._m_sKernelVersion}.cpio.*, not just the one we’re going
+         # We’ll remove any initramfs-${self._m_sKernelRelease}.cpio.*, not just the one we’re going
          # to replace; this ensures we don’t leave around a leftover initramfs just because it uses
          # a different compression algorithm.
          sDstIrfArchiveFileNoExt = os.path.splitext(self._m_sDstIrfArchiveFile)[0]
@@ -728,14 +729,14 @@ class Generator(object):
          Full path of the package file that will be created.
       """
 
-      sRepoPath = os.path.join(self._m_sTmpDir, 'repo-' + self._m_sKernelVersion)
+      sRepoPath = os.path.join(self._m_sTmpDir, 'repo-' + self._m_sKernelRelease)
       # TODO: don’t hard-code “vanilla”.
       sEbuildFilePath = os.path.join(sRepoPath, 'sys-kernel', 'vanilla-bin')
       shutil.rmtree(sRepoPath, ignore_errors = True)
       os.makedirs(sEbuildFilePath, 0o755, exist_ok = True)
       # TODO: get the kernelversion string and change it from x.y.z-string to string-bin-x.y.z .
       sEbuildFilePath = os.path.join(
-         sEbuildFilePath, 'vanilla-bin-' + self._m_sKernelVersion + '.ebuild'
+         sEbuildFilePath, 'vanilla-bin-' + self._m_sKernelRelease + '.ebuild'
       )
       try:
          self.einfo('Creating binary package ...\n')
