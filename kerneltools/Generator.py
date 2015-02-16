@@ -186,26 +186,6 @@ class Generator(object):
             int((cbNew - cbOld) * 100 / cbOld)
          ))
 
-   def get_kernel_image_path(self):
-      """Determines the path to the kernel image that make will generate.
-
-      str return
-         Absolute path to the kernel output image.
-      """
-
-      # Ignore errors; if no source directory can be found, we’ll take care of failing.
-      with subprocess.Popen(
-         self._m_listKMakeArgs + ['-s', 'image_name'],
-         stdout = subprocess.PIPE, stderr = subprocess.STDOUT, universal_newlines = True
-      ) as procMake:
-         sStdOut = procMake.communicate()[0].rstrip()
-         # Expect a single line; if multiple lines are present, they must be errors.
-         if procMake.returncode != 0:
-            self.eerror('make image_name failed')
-      if '\n' in sStdOut:
-         self.eerror('unexpected output by make image_name:\n' + sStdOut)
-      return os.path.join(self._m_sSourcePath, sStdOut)
-
    def get_kernel_version(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
@@ -377,7 +357,9 @@ class Generator(object):
          comprKernel = None
 
       # Determine the location of the generated kernel image.
-      self._m_sSrcImagePath = self.get_kernel_image_path()
+      sImagePath = self.kmake_get('image_name')
+      self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sImagePath)
+      del sImagePath
 
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
@@ -720,6 +702,24 @@ class Generator(object):
 
       self.eoutdent()
 
+   def kmake_get(self, sTarget):
+      """Runs kmake to build the specified informative target, such as “kernelrelease”.
+
+      str sTarget
+         Target to “build”.
+      str return
+         Output of kmake.
+      """
+
+      sOut = subprocess.check_output(
+         self._m_listKMakeArgs + ['-s', sTarget],
+         stderr = subprocess.STDOUT, universal_newlines = True
+      )
+      sOut = sOut.rstrip()
+      if '\n' in sOut:
+         self.eerror('unexpected output by make {}:\n{}'.format(sTarget, sOut))
+      return sOut
+
    def package(self, sPackageFile):
       """Generates a package (tarball) containing the same files that would be installed by
       install(): kernel image, modules, and optional initramfs.
@@ -748,7 +748,7 @@ class Generator(object):
          # the destination path, ${D}, using a pattern specific to kernel-gen.
          sOut = subprocess.check_output(
             ('ebuild', sEbuildFilePath, 'clean', 'manifest', 'install'),
-            env = dictEbuildEnv, universal_newlines = True, stderr = subprocess.STDOUT
+            env = dictEbuildEnv, stderr = subprocess.STDOUT, universal_newlines = True
          )
          match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
          sPackageRoot = match.group('D')
