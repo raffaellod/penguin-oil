@@ -30,6 +30,11 @@ import re
 class ExternalModuleEnumerator(object):
    """Enumerates kernel external modules."""
 
+   _smc_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
+   _smc_sFirmwarePath = 'lib/firmware/'
+   _smc_reModulePathPrefix = re.compile(r'^lib/modules/[^/]+/')
+   _smc_rePackageVersion = re.compile(r'-[0-9].*$')
+
    def __init__(self, bFirmware, bModules):
       """Constructor.
 
@@ -40,9 +45,7 @@ class ExternalModuleEnumerator(object):
       """
 
       sRoot = portage.settings['EROOT']
-      self._m_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
       self._m_bFirmware = bFirmware
-      self._m_sFirmwarePath = 'lib/firmware/'
       self._m_bModules = bModules
       self._m_cchRoot = len(sRoot)
       self._m_sVdbPath = os.path.join(sRoot, portage.VDB_PATH)
@@ -97,7 +100,7 @@ class ExternalModuleEnumerator(object):
             with open(os.path.join(sPackagePath, 'CONTENTS'), 'r') as fileContents:
                for sLine in fileContents:
                   # Parse the line.
-                  match = self._m_reContentsLine.match(sLine)
+                  match = self._smc_reContentsLine.match(sLine)
                   if not match:
                      # Not a file (“obj”).
                      continue
@@ -105,10 +108,10 @@ class ExternalModuleEnumerator(object):
                   sFilePath = match.group('path')[self._m_cchRoot:]
                   if self._m_bModules and sFilePath.endswith('.ko'):
                      # Remove “lib/modules/linux-*/”.
-                     sFilePath = re.sub(r'^lib/modules/[^/]+/', '', sFilePath)
-                  elif self._m_bFirmware and sFilePath.startswith(self._m_sFirmwarePath):
+                     sFilePath = self._smc_reModulePathPrefix.sub('', sFilePath)
+                  elif self._m_bFirmware and sFilePath.startswith(self._smc_sFirmwarePath):
                      # Remove “lib/firmware/”.
-                     sFilePath = sFilePath[len(self._m_sFirmwarePath):]
+                     sFilePath = sFilePath[len(self._smc_sFirmwarePath):]
                   else:
                      # Not a file we’re interested in.
                      continue
@@ -120,7 +123,7 @@ class ExternalModuleEnumerator(object):
                   # Replace the package version with its slot.
                   with open(os.path.join(sPackagePath, 'SLOT'), 'r') as fileSlot:
                      sPackageSlot = fileSlot.read().strip()
-                  sPackage = re.sub(r'-[0-9].*$', ':' + sPackageSlot, sPackage)
+                  sPackage = self._smc_rePackageVersion.sub(':' + sPackageSlot, sPackage)
                yield sPackage, listFiles
 
 ####################################################################################################
