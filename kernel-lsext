@@ -20,14 +20,22 @@
 
 """Lists external firmware and/or modules for Linux along with the packages that installed them."""
 
-####################################################################################################
-# __main__
+import sys
 
-if __name__ == '__main__':
+####################################################################################################
+# Globals
+
+def main(iterArgs):
+   """Implementation of __main__.
+
+   iterable(str*) iterArgs
+      Command-line arguments.
+   int return
+      Command return status.
+   """
+
    import argparse
    import kerneltools
-   import os
-   import sys
 
    # Parse the command line.
    argparser = argparse.ArgumentParser(add_help = False)
@@ -69,5 +77,7 @@ if __name__ == '__main__':
       for sFilePath in eme.files():
          # Output files only, one per line.
          sys.stdout.write(sFilePath + '\n')
+   return 0
 
-   sys.exit(0)
+if __name__ == '__main__':
+   sys.exit(main(sys.argv))

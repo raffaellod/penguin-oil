@@ -22,14 +22,23 @@
 compatible initramfs building system such as tinytium.
 """
 
-####################################################################################################
-# __main__
+import sys
 
-if __name__ == '__main__':
+####################################################################################################
+# Globals
+
+def main(iterArgs):
+   """Implementation of __main__.
+
+   iterable(str*) iterArgs
+      Command-line arguments.
+   int return
+      Command return status.
+   """
+
    import kerneltools
    import os
    import re
-   import sys
 
    # Set option defaults.
    sPArch = None
@@ -87,9 +96,9 @@ if __name__ == '__main__':
             -v, --verbose           Enable extended output (mainly from the package manager)
          """))
          if sArg == '--help':
-            sys.exit(0)
+            return 0
          else:
-            sys.exit(1)
+            return 1
 
    gen = kerneltools.Generator(
       sPArch = sPArch,
@@ -106,5 +115,7 @@ if __name__ == '__main__':
    gen.package()
    if bInstall:
       gen.install()
+   return 0
 
-   sys.exit(0)
+if __name__ == '__main__':
+   sys.exit(main(sys.argv))
