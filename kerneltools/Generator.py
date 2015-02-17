@@ -492,7 +492,7 @@ class Generator(object):
       sPrevDir = os.getcwd()
       sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease)
       shutil.rmtree(sIrfWorkDir, ignore_errors = True)
-      os.mkdir(sIrfWorkDir, 0o755)
+      os.mkdir(sIrfWorkDir)
       try:
          os.chdir(sIrfWorkDir)
 
@@ -623,7 +623,7 @@ class Generator(object):
       bUnmountBoot = False
       sBootDir = os.path.join(self._m_sRoot, 'boot')
       if not os.path.isdir(sBootDir):
-         os.mkdir(sBootDir, 0o755)
+         os.mkdir(sBootDir)
       # /boot should contain a symlink to itself (“.”) named “boot”.
       if not os.path.isdir(os.path.join(sBootDir, 'boot')):
          # Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
