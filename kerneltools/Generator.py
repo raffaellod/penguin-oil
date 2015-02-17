@@ -765,7 +765,7 @@ class Generator(object):
          # Inject the package contents into ${D}.
          self.build_dst_paths(sPackageRoot)
          self.einfo('Adding kernel image ...\n')
-         os.makedirs(os.path.join(sPackageRoot, 'boot'), 0o755, exist_ok = True)
+         os.mkdir(os.path.join(sPackageRoot, 'boot'))
          shutil.copy2(self._m_sSrcImagePath,  self._m_sDstImagePath)
          shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
          shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
