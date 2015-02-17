@@ -268,16 +268,12 @@ class Generator(object):
 
       return bool(self._m_sIrfSourcePath)
 
-   def load_kernel_config(self, sConfigPath, sKernelVersion):
-      """Loads the specified kernel configuration file (.config), returning the entries defined in
-      it and verifying that it’s for a specific kernel version.
+   def load_kernel_config(self, sConfigPath):
+      """Loads the specified kernel configuration file (.config), storing the entries defined in it
+      and verifying that it’s for the correct kernel version.
 
       str sConfigPath
          Path to the configuration file.
-      str sKernelVersion
-         Kernel version to be matched.
-      dict(object) return
-         Configuration entries.
       """
 
       dictKernelConfig = {}
@@ -295,7 +291,7 @@ class Generator(object):
                      # Match: “Linux kernel version: 2.6.34”.
                      match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
                   if match:
-                     bConfigVersionFound = match.group('version') == sKernelVersion
+                     bConfigVersionFound = match.group('version') == self._m_sKernelVersion
                      continue
                else:
                   self.eerror('This kernel needs to be configured first.\n')
@@ -314,7 +310,7 @@ class Generator(object):
                   else:
                      oValue = sValue
                   dictKernelConfig[match.group('name')] = oValue
-      return dictKernelConfig
+      self._m_dictKernelConfig = dictKernelConfig
 
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
@@ -359,6 +355,7 @@ class Generator(object):
             raise Exception('unable to determine the version of the selected kernel source')
       # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
       self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
+      self._m_sKernelVersion = sKernelVersion
 
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
@@ -367,12 +364,12 @@ class Generator(object):
       os.environ['ROOT'] = self._m_sRoot
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
-      dictKernelConfig = self.load_kernel_config(self._m_sSrcConfigPath, sKernelVersion)
+      self.load_kernel_config(self._m_sSrcConfigPath)
       self._m_sKernelRelease = self.kmake_get('kernelrelease')
 
       # Get compressor to use for the kernel image from the config file.
       for compr in self._smc_listCompressors:
-         if dictKernelConfig.get('CONFIG_KERNEL_' + compr.config_name()):
+         if ('CONFIG_KERNEL_' + compr.config_name()) in self._m_dictKernelConfig:
             comprKernel = compr
             break
       else:
@@ -385,7 +382,7 @@ class Generator(object):
 
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
-         if not dictKernelConfig.get('CONFIG_BLK_DEV_INITRD'):
+         if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
             raise Exception('the selected kernel was not configured to support initramfs/initrd')
          if self._m_sIrfSourcePath is True:
             self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
@@ -402,7 +399,7 @@ class Generator(object):
          # Check for an enabled initramfs compression method.
          listEnabledIrfCompressors = []
          for compr in self._smc_listCompressors:
-            if dictKernelConfig.get('CONFIG_RD_' + compr.config_name()):
+            if ('CONFIG_RD_' + compr.config_name()) in self._m_dictKernelConfig:
                if compr is comprKernel:
                   # We can pick the same compression for kernel image and initramfs.
                   self._m_comprIrf = comprKernel
@@ -418,7 +415,7 @@ class Generator(object):
             self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
 
       # Determine if cross-compiling.
-      self._m_sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+      self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
       os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
    def build_kernel(self):
