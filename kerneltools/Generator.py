@@ -751,10 +751,23 @@ class Generator(object):
       """
 
       sCategory = 'sys-kernel'
-      # TODO: build sPackageName: x.y.z-r1-string -> string-bin.
-      sPackageName = 'vanilla-bin'
-      # TODO: build sPackageNameVersion: x.y.z-r1-string -> string-bin-x.y.z-r1.
-      sPackageNameVersion = sPackageName + '-' + self._m_sKernelRelease
+      match = re.match(
+         r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
+      )
+      # Build the package name.
+      if match.group('extra'):
+         sPackageName = match.group('extra')
+      else:
+         sPackageName = 'vanilla'
+      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
+      if sLocalVersion:
+         sPackageName += sLocalVersion
+      sPackageName += '-bin'
+      # Build the package name with version.
+      sPackageNameVersion = sPackageName + '-' + match.group('ver')
+      if match.group('rev'):
+         sPackageNameVersion += match.group('rev')
+      # Get the specified overlay or the one with the highest priority.
       if sOverlayName is None:
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
       povl = self._m_pconfig.repositories.prepos[sOverlayName]
