@@ -36,7 +36,6 @@ if __name__ == '__main__':
    sIrfSourcePath = True
    bIrfDebug = False
    bInstall = True
-   sPackageFile = None
    bRebuildModules = True
    sRoot = None
    sSourcePath = os.getcwd()
@@ -56,8 +55,6 @@ if __name__ == '__main__':
          bInstall = False
       elif sArg == '--no-rebuildmods':
          bRebuildModules = False
-      elif sArg == '-p' or sArg.startswith('--package='):
-         sPackageFile = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-r' or sArg.startswith('--root='):
          sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
       elif sArg == '-s' or sArg.startswith('--source='):
@@ -83,7 +80,6 @@ if __name__ == '__main__':
                                     and --no-rebuildmods.
                 --no-rebuildmods    Don't rebuild packages providing external modules;
                                     delete the module files instead.
-            -p, --package=FILE      Create a binary kernel package named FILE.
             -r, --root=DIR          Use DIR as root directory. Defaults to Portage's
                                     ${ROOT}.
             -s, --source=DIR        Select DIR as the kernel source directory. Defaults to
@@ -107,9 +103,8 @@ if __name__ == '__main__':
    gen.build_kernel()
    if gen.with_initramfs():
       gen.build_initramfs()
+   gen.package()
    if bInstall:
       gen.install()
-   if sPackageFile:
-      gen.package(sPackageFile)
 
    sys.exit(0)

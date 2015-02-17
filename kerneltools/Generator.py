@@ -746,12 +746,10 @@ class Generator(object):
          self.eerror('unexpected output by make {}:\n{}'.format(sTarget, sOut))
       return sOut
 
-   def package(self, sPackageFile, sOverlayName = None):
-      """Generates a package (tarball) containing the same files that would be installed by
+   def package(self, sOverlayName = None):
+      """Generates a Portage binary package (.tbz2) containing the files that would be installed by
       install(): kernel image, modules, and optional initramfs.
 
-      str sPackageFile
-         Full path of the package file that will be created.
       str sOverlayName
          Name of ther overlay in which the package ebuild will be added; defaults to the overlay
          with the highest priority.
