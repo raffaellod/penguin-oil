@@ -418,7 +418,8 @@ class Generator(object):
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
-      os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
+      if self._m_sCrossCompiler:
+         os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
    def build_kernel(self):
       """Builds the kernel image and modules."""
