@@ -663,6 +663,8 @@ class Generator(object):
             os.path.exists(self._m_sDstModulesDir) or tplDstIrfArchiveFiles \
          :
             self.einfo('Removing old files\n')
+
+            # Delete an old image.
             try:
                cbKernelImage = os.path.getsize(self._m_sDstImagePath)
             except OSError:
@@ -672,17 +674,16 @@ class Generator(object):
                   os.unlink(sDstFilePath)
                except OSError:
                   pass
+
             # Remove every in-tree kernel module, leaving only the out-of-tree ones.
             cbModules = self.modules_size(self._m_sDstModulesDir)
-
+            listArgs = ['find', self._m_sDstModulesDir]
             eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
-            sModuleFiles = '\n'.join(list(eme.files()))
-            sModuleFiles = re.sub(r'^', '! -path */', sModuleFiles, flags = re.MULTILINE)
+            for sModuleFile in eme.files():
+               listArgs.extend(('!', '-path', '*/' + sModuleFile))
+            listArgs.extend(('(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'))
+            subprocess.check_call(listArgs)
 
-            subprocess.check_call(
-               ['find', self._m_sDstModulesDir] + shlex.split(sModuleFiles) +
-                  ['(', '!', '-type', 'd', '-o', '-empty', ')', '-delete']
-            )
             # Delete any initramfs archive.
             for s in tplDstIrfArchiveFiles:
                cbIrfArchive += os.path.getsize(s)
