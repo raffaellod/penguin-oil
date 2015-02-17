@@ -303,9 +303,11 @@ class Generator(object):
                   sValue = match.group('value')
                   if sValue == 'y':
                      oValue = True
-                  elif sValue == 'n':
-                     oValue = False
-                  elif len(sValue) >= 2 and sValue[0] == '"' and sValue[:-1] == '"':
+                  elif sValue == 'n' or sValue == 'm':
+                     # Consider modules as missing, since checks for CONFIG_* values in this class
+                     # would hardly consider modules as satisfying.
+                     continue
+                  elif len(sValue) >= 2 and sValue[0] == '"' and sValue[-1] == '"':
                      oValue = sValue[1:-1]
                   else:
                      oValue = sValue
