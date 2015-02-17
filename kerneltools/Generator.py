@@ -732,22 +732,22 @@ class Generator(object):
          with the highest priority.
       """
 
-      self.einfo('Creating binary package ...\n')
-      self.eindent()
-
-      if sOverlayName is None:
-         sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
-      self.einfo('using overlay \033[1;37m{}\033[0m\n'.format(sOverlayName))
-      povl = self._m_pconfig.repositories.prepos[sOverlayName]
-
       sCategory = 'sys-kernel'
       # TODO: build sPackageName: x.y.z-r1-string -> string-bin.
       sPackageName = 'vanilla-bin'
       # TODO: build sPackageNameVersion: x.y.z-r1-string -> string-bin-x.y.z-r1.
       sPackageNameVersion = sPackageName + '-' + self._m_sKernelRelease
+      if sOverlayName is None:
+         sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
+      povl = self._m_pconfig.repositories.prepos[sOverlayName]
 
-      sEbuildFilePath = os.path.join(povl.location, 'sys-kernel', sPackageName)
-      os.makedirs(sEbuildFilePath, 0o755, exist_ok = True)
+      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m ...\n'.format(
+         sCategory, sPackageNameVersion, sOverlayName
+      ))
+      self.eindent()
+
+      sEbuildFilePath = os.path.join(povl.location, sCategory, sPackageName)
+      os.makedirs(sEbuildFilePath, exist_ok = True)
       sEbuildFilePath = os.path.join(sEbuildFilePath, sPackageNameVersion + '.ebuild')
       try:
          dictEbuildEnv = dict(os.environ)
