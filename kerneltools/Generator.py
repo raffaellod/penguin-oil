@@ -93,6 +93,27 @@ class Generator(object):
       Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
       Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
    ]
+   _smc_sEbuildTemplate = re.sub(r'^ *', '', """
+      EAPI=5
+
+      LICENSE="GPL-2"
+      SLOT="${PVR}"
+      KEYWORDS="~${ARCH}"
+      DESCRIPTION="Linux kernel image and modules"
+      HOMEPAGE="http://www.kernel.org"
+
+      # TODO: does mount-boot really allow installing files in /boot correctly?
+      inherit mount-boot
+
+      S="${WORKDIR}"
+
+      # Avoid stripping kernel binaries.
+      RESTRICT="strip"
+
+      src_install() {
+         echo "KERNEL-GEN: D=${D}"
+      }
+   """, 0, re.MULTILINE)
 
    def __init__(self, sPArch, sIrfSourcePath, bIrfDebug, bRebuildModules, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
@@ -746,13 +767,15 @@ class Generator(object):
       ))
       self.eindent()
 
+      # Generate a new ebuild at the expected location in the selected overlay.
       sEbuildFilePath = os.path.join(povl.location, sCategory, sPackageName)
       os.makedirs(sEbuildFilePath, exist_ok = True)
       sEbuildFilePath = os.path.join(sEbuildFilePath, sPackageNameVersion + '.ebuild')
-      try:
-         dictEbuildEnv = dict(os.environ)
-         shutil.copy2('template.ebuild', sEbuildFilePath)
+      with open(sEbuildFilePath, 'wt') as fileEbuild:
+         fileEbuild.write(self._smc_sEbuildTemplate)
 
+      dictEbuildEnv = dict(os.environ)
+      try:
          # Have Portage create the package installation image for the ebuild. The ebuild will output
          # the destination path, ${D}, using a pattern specific to kernel-gen.
          sOut = subprocess.check_output(
