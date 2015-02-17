@@ -721,28 +721,36 @@ class Generator(object):
          self.eerror('unexpected output by make {}:\n{}'.format(sTarget, sOut))
       return sOut
 
-   def package(self, sPackageFile):
+   def package(self, sPackageFile, sOverlayName = None):
       """Generates a package (tarball) containing the same files that would be installed by
       install(): kernel image, modules, and optional initramfs.
 
       str sPackageFile
          Full path of the package file that will be created.
+      str sOverlayName
+         Name of ther overlay in which the package ebuild will be added; defaults to the overlay
+         with the highest priority.
       """
 
-      sRepoPath = os.path.join(self._m_sTmpDir, 'repo-' + self._m_sKernelRelease)
-      # TODO: don’t hard-code “vanilla”.
-      sEbuildFilePath = os.path.join(sRepoPath, 'sys-kernel', 'vanilla-bin')
-      shutil.rmtree(sRepoPath, ignore_errors = True)
+      self.einfo('Creating binary package ...\n')
+      self.eindent()
+
+      if sOverlayName is None:
+         sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
+      self.einfo('using overlay \033[1;37m{}\033[0m\n'.format(sOverlayName))
+      povl = self._m_pconfig.repositories.prepos[sOverlayName]
+
+      sCategory = 'sys-kernel'
+      # TODO: build sPackageName: x.y.z-r1-string -> string-bin.
+      sPackageName = 'vanilla-bin'
+      # TODO: build sPackageNameVersion: x.y.z-r1-string -> string-bin-x.y.z-r1.
+      sPackageNameVersion = sPackageName + '-' + self._m_sKernelRelease
+
+      sEbuildFilePath = os.path.join(povl.location, 'sys-kernel', sPackageName)
       os.makedirs(sEbuildFilePath, 0o755, exist_ok = True)
-      # TODO: get the kernelversion string and change it from x.y.z-string to string-bin-x.y.z .
-      sEbuildFilePath = os.path.join(
-         sEbuildFilePath, 'vanilla-bin-' + self._m_sKernelRelease + '.ebuild'
-      )
+      sEbuildFilePath = os.path.join(sEbuildFilePath, sPackageNameVersion + '.ebuild')
       try:
-         self.einfo('Creating binary package ...\n')
-         self.eindent()
          dictEbuildEnv = dict(os.environ)
-         dictEbuildEnv['PKGDIR'] = sRepoPath
          shutil.copy2('template.ebuild', sEbuildFilePath)
 
          # Have Portage create the package installation image for the ebuild. The ebuild will output
@@ -777,8 +785,10 @@ class Generator(object):
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          )
       finally:
-         pass
-#         self.einfo('Cleaning up kernel package ...\n')
-#         shutil.rmtree(sRepoPath)
-
-      self.eoutdent()
+         self.eoutdent()
+         self.einfo('Cleaning up package build temporary directory ...\n')
+         with subprocess.Popen(
+            ('ebuild', sEbuildFilePath, 'clean'),
+            env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+         ) as procClean:
+            procClean.communicate()
