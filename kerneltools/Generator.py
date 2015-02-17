@@ -149,7 +149,7 @@ class Generator(object):
       """Destructor."""
 
       if self._m_sSrcIrfArchiveFile:
-         self.einfo('Cleaning up temporary files ...\n')
+         self.einfo('Cleaning up temporary files\n')
          try:
             os.unlink(self._m_sSrcIrfArchiveFile)
          except OSError:
@@ -317,7 +317,7 @@ class Generator(object):
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
 
-      self.einfo('Preparing to build kernel ...\n')
+      self.einfo('Preparing to build kernel\n')
 
       # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
       dictPArchToKArch = {
@@ -459,13 +459,13 @@ class Generator(object):
          os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
       :
          if self._m_bRebuildModules:
-            self.einfo('Preparing to rebuild out-of-tree kernel modules ...\n')
+            self.einfo('Preparing to rebuild out-of-tree kernel modules\n')
             subprocess.check_call(
                self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
             )
             self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
 
-            self.einfo('Rebuilding out-of-tree kernel modules ...\n')
+            self.einfo('Rebuilding out-of-tree kernel modules\n')
             eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
             listModulePackages = list(eme.packages())
             if listModulePackages:
@@ -474,7 +474,7 @@ class Generator(object):
                   '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
                ] + listModulePackages, stdout = self._m_fileNullOut)
 
-         self.einfo('Building kernel image and modules ...\n')
+         self.einfo('Building kernel image and modules\n')
          subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
 
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
@@ -496,7 +496,7 @@ class Generator(object):
       try:
          os.chdir(sIrfWorkDir)
 
-         self.einfo('Adding kernel modules ...\n')
+         self.einfo('Adding kernel modules\n')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
             stdout = self._m_fileNullOut
@@ -523,7 +523,7 @@ class Generator(object):
                      # Recursively remove the excluded directory.
                      shutil.rmtree(sDir, ignore_errors = True)
 
-         self.einfo('Adding out-of-tree firmware ...\n')
+         self.einfo('Adding out-of-tree firmware\n')
          # Create the folder beforehand; it not needed, we'll delete it later.
          sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
          sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
@@ -544,13 +544,13 @@ class Generator(object):
             self.eoutdent()
          else:
             # No build script; just copy every file.
-            self.einfo('Adding source files ...\n')
+            self.einfo('Adding source files\n')
             for sIrfFile in os.listdir(self._m_sIrfSourcePath):
                shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
          # Build a list with every file name for cpio to package, relative to the current directory
          # (sIrfWorkDir).
-         self.einfo('Collecting file names ...\n')
+         self.einfo('Collecting file names\n')
          listIrfContents = []
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
             # Strip the work directory, changing sIrfWorkDir into ‘.’.
@@ -564,7 +564,7 @@ class Generator(object):
                self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease + '.ls'
             )
             with open(sIrfDumpFileName, 'w') as fileIrfDump:
-               self.einfo('Dumping contents of generated initramfs to {} ...\n'.format(
+               self.einfo('Dumping contents of generated initramfs to {}\n'.format(
                   sIrfDumpFileName
                ))
                subprocess.check_call(
@@ -574,7 +574,7 @@ class Generator(object):
 #         byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
          del listIrfContents
 
-         self.einfo('Creating archive ...\n')
+         self.einfo('Creating archive\n')
          with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
             if self._m_comprIrf:
@@ -600,7 +600,7 @@ class Generator(object):
                   procCpio.communicate()
                procCompress.communicate()
       finally:
-         self.einfo('Cleaning up initramfs ...\n')
+         self.einfo('Cleaning up initramfs\n')
          os.chdir(sPrevDir)
          shutil.rmtree(sIrfWorkDir)
 
@@ -662,7 +662,7 @@ class Generator(object):
             any(os.path.exists(sDstFilePath) for _, sDstFilePath in setAccessoryFilesSubst) or \
             os.path.exists(self._m_sDstModulesDir) or tplDstIrfArchiveFiles \
          :
-            self.einfo('Removing old files ...\n')
+            self.einfo('Removing old files\n')
             try:
                cbKernelImage = os.path.getsize(self._m_sDstImagePath)
             except OSError:
@@ -688,7 +688,7 @@ class Generator(object):
                cbIrfArchive += os.path.getsize(s)
                os.unlink(s)
 
-         self.einfo('Installing kernel image ...\n')
+         self.einfo('Installing kernel image\n')
          for sSrcFilePath, sDstFilePath in setAccessoryFilesSubst:
             shutil.copy2(sSrcFilePath, sDstFilePath)
          if cbKernelImage:
@@ -696,7 +696,7 @@ class Generator(object):
             self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImagePath))
             self.eoutdent()
 
-         self.einfo('Installing modules ...')
+         self.einfo('Installing modules')
          cModules = 0
          with subprocess.Popen(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
@@ -713,7 +713,7 @@ class Generator(object):
             self.eoutdent()
 
          if self.with_initramfs():
-            self.einfo('Installing initramfs ...\n')
+            self.einfo('Installing initramfs\n')
             shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
             if cbIrfArchive:
                self.eindent()
@@ -723,7 +723,7 @@ class Generator(object):
                self.eoutdent()
       finally:
          if bUnmountBoot:
-            self.einfo('Unmounting {} ...\n'.format(sBootDir))
+            self.einfo('Unmounting {}\n'.format(sBootDir))
             subprocess.check_call(('umount', sBootDir), stdout = self._m_fileNullOut)
 
       self.eoutdent()
@@ -777,7 +777,7 @@ class Generator(object):
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
       povl = self._m_pconfig.repositories.prepos[sOverlayName]
 
-      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m ...\n'.format(
+      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m\n'.format(
          sCategory, sPackageNameVersion, sOverlayName
       ))
       self.eindent()
@@ -802,29 +802,29 @@ class Generator(object):
 
          # Inject the package contents into ${D}.
          self.build_dst_paths(sPackageRoot)
-         self.einfo('Adding kernel image ...\n')
+         self.einfo('Adding kernel image\n')
          os.mkdir(os.path.join(sPackageRoot, 'boot'))
          shutil.copy2(self._m_sSrcImagePath,  self._m_sDstImagePath)
          shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
          shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
-         self.einfo('Adding modules ...\n')
+         self.einfo('Adding modules\n')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
             stdout = self._m_fileNullOut
          )
          if self.with_initramfs():
-            self.einfo('Adding initramfs ...\n')
+            self.einfo('Adding initramfs\n')
             shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
 
          # Complete the package creation, which will grab everything that’s in ${D}.
-         self.einfo('Creating archive ...\n')
+         self.einfo('Creating archive\n')
          subprocess.check_call(
             ('ebuild', sEbuildFilePath, 'package'),
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          )
       finally:
          self.eoutdent()
-         self.einfo('Cleaning up package build temporary directory ...\n')
+         self.einfo('Cleaning up package build temporary directory\n')
          with subprocess.Popen(
             ('ebuild', sEbuildFilePath, 'clean'),
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
