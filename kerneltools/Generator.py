@@ -115,7 +115,7 @@ class Generator(object):
       }
    """, 0, re.MULTILINE)
 
-   def __init__(self, sPArch, sIrfSourcePath, bIrfDebug, bRebuildModules, sRoot, sSourcePath):
+   def __init__(self, sPArch, sIrfSourcePath, bIrfDebug, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
 
       self._m_pconfig = portage_config.config()
@@ -133,7 +133,6 @@ class Generator(object):
       else:
          self._m_sPArch = sPArch
       self._m_sPRoot = self._m_pconfig['EROOT']
-      self._m_bRebuildModules = bRebuildModules
       if sRoot is None:
          self._m_sRoot = self._m_sPRoot
       else:
@@ -421,8 +420,13 @@ class Generator(object):
       if self._m_sCrossCompiler:
          os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
-   def build_kernel(self):
-      """Builds the kernel image and modules."""
+   def build_kernel(self, bRebuildOutOfTreeModules = True):
+      """Builds the kernel image and modules.
+
+      bool bRebuildOutOfTreeModules
+         If True, packages that install out-of-tree modules will be rebuilt in order to ensure
+         binary compatibility with the kernel being built.
+      """
 
       self.einfo('Ready to build:\n')
       self.eindent()
@@ -458,7 +462,7 @@ class Generator(object):
       if not os.path.exists(self._m_sSrcImagePath) or \
          os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
       :
-         if self._m_bRebuildModules:
+         if bRebuildOutOfTreeModules:
             self.einfo('Preparing to rebuild out-of-tree kernel modules\n')
             subprocess.check_call(
                self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
@@ -474,7 +478,7 @@ class Generator(object):
                   '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
                ] + listModulePackages, stdout = self._m_fileNullOut)
 
-         self.einfo('Building kernel image and modules\n')
+         self.einfo('Building kernel image and in-tree modules\n')
          subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
 
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).

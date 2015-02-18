@@ -64,11 +64,12 @@ def main(iterArgs):
    )
    argparser.add_argument(
       '--no-install', dest = 'install', action = 'store_false', default = True,
-      help = 'Don\'t install the compiled kernel; also ignores --root and --no-rebuildmods.'
+      help = 'Don\'t install the compiled kernel, only build/package it.'
    )
    argparser.add_argument(
-      '--no-rebuildmods', dest = 'rebuild_mods', action = 'store_false', default = True,
-      help = 'Don\'t rebuild packages providing external modules; delete the module files instead.'
+      '--no-rebuild-out-of-tree-modules', dest = 'rebuild_out_of_tree_modules',
+      action = 'store_false', default = True,
+      help = 'Don\'t rebuild packages providing out-of-tree (external) modules.'
    )
    argparser.add_argument(
       '-r', '--root', metavar = 'DIR',
@@ -89,12 +90,11 @@ def main(iterArgs):
       sPArch = args.arch,
       sIrfSourcePath = args.initramfs,
       bIrfDebug = args.initramfs_debug,
-      bRebuildModules = args.rebuild_mods,
       sRoot = args.root,
       sSourcePath = args.source
    )
    gen.prepare()
-   gen.build_kernel()
+   gen.build_kernel(args.rebuild_out_of_tree_modules)
    if gen.with_initramfs():
       gen.build_initramfs()
    gen.package()
