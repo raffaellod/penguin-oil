@@ -89,14 +89,13 @@ def main(iterArgs):
    gen = kerneltools.Generator(
       sPArch = args.arch,
       sIrfSourcePath = args.initramfs,
-      bIrfDebug = args.initramfs_debug,
       sRoot = args.root,
       sSourcePath = args.source
    )
    gen.prepare()
    gen.build_kernel(args.rebuild_out_of_tree_modules)
    if gen.with_initramfs():
-      gen.build_initramfs()
+      gen.build_initramfs(args.initramfs_debug)
    gen.package()
    if args.install:
       gen.install()
