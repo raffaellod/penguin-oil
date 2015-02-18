@@ -450,7 +450,7 @@ class Generator(object):
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
          iOldMask = os.umask(0o002)
-         os.makedirs(sDistCCDir, 0o775, exist_ok = True)
+         os.makedirs(sDistCCDir, exist_ok = True)
          os.umask(iOldMask)
          os.environ['DISTCC_DIR'] = sDistCCDir
 
@@ -534,7 +534,7 @@ class Generator(object):
          eme = ExternalModuleEnumerator(bFirmware = True, bModules = False)
          for sSrcExtFirmwarePath in eme.files():
             sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
-            os.makedirs(os.path.dirname(sDstExtFirmwarePath), 0o755, exist_ok = True)
+            os.makedirs(os.path.dirname(sDstExtFirmwarePath), exist_ok = True)
             # Copy the firmware file.
             shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
 
