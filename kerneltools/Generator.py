@@ -392,7 +392,7 @@ class Generator(object):
             self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
             self.ewarn('but no suitable initramfs source directory was specified or found.\n')
             self.ewarn('No initramfs will be created.\n')
-            self._m_sIrfSourcePath = None
+            self._m_sIrfSourcePath = False
 
       if self.with_initramfs():
          # TODO: check that these CONFIG_ match:

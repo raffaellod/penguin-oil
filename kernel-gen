@@ -36,84 +36,69 @@ def main(iterArgs):
       Command return status.
    """
 
+   import argparse
    import kerneltools
    import os
    import re
 
-   # Set option defaults.
-   sPArch = None
-   sIrfSourcePath = True
-   bIrfDebug = False
-   bInstall = True
-   bRebuildModules = True
-   sRoot = None
-   sSourcePath = os.getcwd()
-
-   # Scan the command line.
-   for sArg in sys.argv[1:]:
-      # Discard this argument.
-      if sArg == '-a' or sArg.startswith('--arch='):
-         sPArch = re.sub(r'[^=]+=', '', sArg)
-      elif sArg == '-i' or sArg.startswith('--initramfs='):
-         sIrfSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-      elif sArg == '--initramfs-debug':
-         bIrfDebug = True
-      elif sArg == '--no-initramfs':
-         sIrfSourcePath = None
-      elif sArg == '--no-install':
-         bInstall = False
-      elif sArg == '--no-rebuildmods':
-         bRebuildModules = False
-      elif sArg == '-r' or sArg.startswith('--root='):
-         sRoot = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-      elif sArg == '-s' or sArg.startswith('--source='):
-         sSourcePath = os.path.abspath(re.sub(r'[^=]+=', '', sArg))
-      elif sArg == '-v' or sArg == '--verbose':
-         os.environ['KG_VERBOSE'] = '1'
-      elif sArg == '--':
-         break
-      else:
-         import textwrap
-         sys.stdout.write(textwrap.dedent("""\
-            Usage: kernel-gen [options]
-            Possible options:
-            -a, --arch=ARCH         Build a kernel for the specified ARCHitecture. Defaults
-                                    to Portage's ARCH variable.
-            -i, --initramfs=DIR     Use DIR as an initramfs source directory. Defaults to
-                                    `${ROOT}/usr/src/initramfs'.
-                --initramfs-debug   Dumps the contents of the generated initramfs before
-                                    packaging it.
-                --help              Show this informative message and quit.
-                --no-initramfs      Ignore the initramfs directory, even if existent.
-                --no-install        Don't install the compiled kernel; also ignores --root
-                                    and --no-rebuildmods.
-                --no-rebuildmods    Don't rebuild packages providing external modules;
-                                    delete the module files instead.
-            -r, --root=DIR          Use DIR as root directory. Defaults to Portage's
-                                    ${ROOT}.
-            -s, --source=DIR        Select DIR as the kernel source directory. Defaults to
-                                    the current directory or `${ROOT}/usr/src/linux'.
-            -v, --verbose           Enable extended output (mainly from the package manager)
-         """))
-         if sArg == '--help':
-            return 0
-         else:
-            return 1
+   argparser = argparse.ArgumentParser(add_help = False)
+   argparser.add_argument(
+      '-a', '--arch', metavar = 'ARCH',
+      help = 'Build a kernel for the specified ARCHitecture. Defaults to Portage\'s ARCH variable.'
+   )
+   argparser.add_argument(
+      '--help', action = 'help',
+      help = 'Show this informative message and exit.'
+   )
+   argparser.add_argument(
+      '-i', '--initramfs', metavar = 'DIR', default = True,
+      help = 'Use DIR as an initramfs source directory. Defaults to `${ROOT}/usr/src/initramfs\'.'
+   )
+   argparser.add_argument(
+      '--initramfs-debug', action = 'store_true', default = False,
+      help = 'Dump the contents of the generated initramfs before packaging it.'
+   )
+   argparser.add_argument(
+      '--no-initramfs', dest = 'initramfs', action = 'store_false',
+      help = 'Ignore the initramfs directory, even if existent.'
+   )
+   argparser.add_argument(
+      '--no-install', dest = 'install', action = 'store_false', default = True,
+      help = 'Don\'t install the compiled kernel; also ignores --root and --no-rebuildmods.'
+   )
+   argparser.add_argument(
+      '--no-rebuildmods', dest = 'rebuild_mods', action = 'store_false', default = True,
+      help = 'Don\'t rebuild packages providing external modules; delete the module files instead.'
+   )
+   argparser.add_argument(
+      '-r', '--root', metavar = 'DIR',
+      help = 'Use DIR as root directory. Defaults to Portage\'s ${ROOT}.'
+   )
+   argparser.add_argument(
+      '-s', '--source', metavar = 'DIR', default = os.getcwd(),
+      help = 'Select DIR as the kernel source directory. Defaults to the current directory or ' +
+             '`${ROOT}/usr/src/linux\'.'
+   )
+   argparser.add_argument(
+      '-v', '--verbose', action = 'store_true', default = False,
+      help = 'Enable extended output (mainly from the package manager).'
+   )
+   args = argparser.parse_args()
 
    gen = kerneltools.Generator(
-      sPArch = sPArch,
-      sIrfSourcePath = sIrfSourcePath,
-      bIrfDebug = bIrfDebug,
-      bRebuildModules = bRebuildModules,
-      sRoot = sRoot,
-      sSourcePath = sSourcePath
+      sPArch = args.arch,
+      sIrfSourcePath = args.initramfs,
+      bIrfDebug = args.initramfs_debug,
+      bRebuildModules = args.rebuild_mods,
+      sRoot = args.root,
+      sSourcePath = args.source
    )
    gen.prepare()
    gen.build_kernel()
    if gen.with_initramfs():
       gen.build_initramfs()
    gen.package()
-   if bInstall:
+   if args.install:
       gen.install()
    return 0
 
