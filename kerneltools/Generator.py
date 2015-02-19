@@ -98,7 +98,7 @@ class Generator(object):
 
       LICENSE="GPL-2"
       SLOT="${PVR}"
-      KEYWORDS="~${ARCH}"
+      KEYWORDS="${ARCH}"
       DESCRIPTION="Linux kernel image and modules"
       HOMEPAGE="http://www.kernel.org"
 
