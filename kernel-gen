@@ -71,6 +71,11 @@ def main(iterArgs):
       help = 'Don\'t rebuild packages providing out-of-tree (external) modules.'
    )
    argparser.add_argument(
+      '-o', '--overlay',
+      help = 'Place the generated binary package in the specified overlay. Defaults to the ' +
+             'overlay with the highest priority (the last in $(PORTDIR_OVERLAY}).'
+   )
+   argparser.add_argument(
       '-r', '--root',
       help = 'Specify the root directory. Defaults to Portage\'s ${ROOT}.'
    )
@@ -95,7 +100,7 @@ def main(iterArgs):
    gen.build_kernel(args.oot_modules)
    if gen.with_initramfs():
       gen.build_initramfs(args.initramfs_debug)
-   gen.package()
+   gen.package(args.overlay)
    if args.install:
       gen.install()
    return 0

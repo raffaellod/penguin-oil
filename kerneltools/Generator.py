@@ -784,7 +784,9 @@ class Generator(object):
       # Get the specified overlay or the one with the highest priority.
       if sOverlayName is None:
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
-      povl = self._m_pconfig.repositories.prepos[sOverlayName]
+      povl = self._m_pconfig.repositories.prepos.get(sOverlayName)
+      if not povl:
+         self.eerror('Unknown overlay: {}\n'.format(sOverlayName))
 
       self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m\n'.format(
          sCategory, sPackageNameVersion, sOverlayName
