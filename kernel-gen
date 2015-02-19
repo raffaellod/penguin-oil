@@ -39,7 +39,6 @@ def main(iterArgs):
    import argparse
    import kerneltools
    import os
-   import re
 
    argparser = argparse.ArgumentParser(add_help = False)
    argparser.add_argument(
