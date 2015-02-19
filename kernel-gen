@@ -50,12 +50,12 @@ def main(iterArgs):
       help = 'Show this informative message and exit.'
    )
    argparser.add_argument(
-      '-i', '--initramfs', metavar = 'DIR', default = True,
-      help = 'Use DIR as an initramfs source directory. Defaults to `${ROOT}/usr/src/initramfs\'.'
+      '-i', '--initramfs', default = True,
+      help = 'Use a specific initramfs source directory. Defaults to `${ROOT}/usr/src/initramfs\'.'
    )
    argparser.add_argument(
       '--initramfs-debug', action = 'store_true', default = False,
-      help = 'Dump the contents of the generated initramfs before packaging it.'
+      help = 'Dump the contents of the generated initramfs before turning it into a cpio archive.'
    )
    argparser.add_argument(
       '--no-initramfs', dest = 'initramfs', action = 'store_false',
@@ -63,25 +63,25 @@ def main(iterArgs):
    )
    argparser.add_argument(
       '--no-install', dest = 'install', action = 'store_false', default = True,
-      help = 'Don\'t install the compiled kernel, only build/package it.'
+      help = 'Build and package the kernel, but don’t install it.'
    )
    argparser.add_argument(
-      '--no-rebuild-out-of-tree-modules', dest = 'rebuild_out_of_tree_modules',
+      '--no-oot-modules', dest = 'oot_modules',
       action = 'store_false', default = True,
       help = 'Don\'t rebuild packages providing out-of-tree (external) modules.'
    )
    argparser.add_argument(
-      '-r', '--root', metavar = 'DIR',
-      help = 'Use DIR as root directory. Defaults to Portage\'s ${ROOT}.'
+      '-r', '--root',
+      help = 'Specify the root directory. Defaults to Portage\'s ${ROOT}.'
    )
    argparser.add_argument(
-      '-s', '--source', metavar = 'DIR', default = os.getcwd(),
-      help = 'Select DIR as the kernel source directory. Defaults to the current directory or ' +
+      '-s', '--source', default = os.getcwd(),
+      help = 'Select the kernel source directory. Defaults to the current directory or ' +
              '`${ROOT}/usr/src/linux\'.'
    )
    argparser.add_argument(
       '-v', '--verbose', action = 'store_true', default = False,
-      help = 'Enable extended output (mainly from the package manager).'
+      help = 'Enable verbose output (mainly from the package manager).'
    )
    args = argparser.parse_args()
 
@@ -92,7 +92,7 @@ def main(iterArgs):
       sSourcePath = args.source
    )
    gen.prepare()
-   gen.build_kernel(args.rebuild_out_of_tree_modules)
+   gen.build_kernel(args.oot_modules)
    if gen.with_initramfs():
       gen.build_initramfs(args.initramfs_debug)
    gen.package()
