@@ -18,17 +18,17 @@
 # see <http://www.gnu.org/licenses/>.
 #---------------------------------------------------------------------------------------------------
 
-"""Implementation of the class ExternalModuleEnumerator."""
+"""Implementation of the class OutOfTreeEnumerator."""
 
 import os
 import portage
 import re
 
 ####################################################################################################
-# ExternalModuleEnumerator
+# OutOfTreeEnumerator
 
-class ExternalModuleEnumerator(object):
-   """Enumerates kernel external modules."""
+class OutOfTreeEnumerator(object):
+   """Enumerates kernel out-of-tree modules and firmware."""
 
    _smc_reContentsLine = re.compile(r'^obj\s+(?P<path>\S+)\s+')
    _smc_sFirmwarePath = 'lib/firmware/'

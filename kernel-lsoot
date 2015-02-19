@@ -63,18 +63,18 @@ def main(iterArgs):
    )
    args = argparser.parse_args()
 
-   eme = kerneltools.ExternalModuleEnumerator(bFirmware = args.firmware, bModules = args.modules)
+   oote = kerneltools.OutOfTreeEnumerator(bFirmware = args.firmware, bModules = args.modules)
    if args.packages:
       if args.files:
-         for sPackage, listFiles in eme.packages_and_files():
+         for sPackage, listFiles in oote.packages_and_files():
             # Output the package and its files.
             sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
       else:
-         for sPackage, listFiles in eme.packages_and_files():
+         for sPackage, listFiles in oote.packages_and_files():
             # Output packages only.
             sys.stdout.write(sPackage + '\n')
    else:
-      for sFilePath in eme.files():
+      for sFilePath in oote.files():
          # Output files only, one per line.
          sys.stdout.write(sFilePath + '\n')
    return 0

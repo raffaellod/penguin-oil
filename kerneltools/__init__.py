@@ -20,5 +20,5 @@
 
 """Tools to build and maintain Linux from sources."""
 
-from .ExternalModuleEnumerator import ExternalModuleEnumerator
+from .OutOfTreeEnumerator import OutOfTreeEnumerator
 from .Generator import Generator

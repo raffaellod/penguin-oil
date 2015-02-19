@@ -28,7 +28,7 @@ import shlex
 import shutil
 import subprocess
 import sys
-from . import ExternalModuleEnumerator
+from . import OutOfTreeEnumerator
 
 ####################################################################################################
 # Compressor
@@ -469,8 +469,8 @@ class Generator(object):
             self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
 
             self.einfo('Rebuilding out-of-tree kernel modules\n')
-            eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
-            listModulePackages = list(eme.packages())
+            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
+            listModulePackages = list(oote.packages())
             if listModulePackages:
                subprocess.check_call([
                   self._m_sCrossCompiler + 'emerge',
@@ -535,8 +535,8 @@ class Generator(object):
          # Create the folder beforehand; it not needed, we'll delete it later.
          sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
          sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
-         eme = ExternalModuleEnumerator(bFirmware = True, bModules = False)
-         for sSrcExtFirmwarePath in eme.files():
+         oote = OutOfTreeEnumerator(bFirmware = True, bModules = False)
+         for sSrcExtFirmwarePath in oote.files():
             sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
             os.makedirs(os.path.dirname(sDstExtFirmwarePath), exist_ok = True)
             # Copy the firmware file.
@@ -686,8 +686,8 @@ class Generator(object):
             # Remove every in-tree kernel module, leaving only the out-of-tree ones.
             cbModules = self.modules_size(self._m_sDstModulesDir)
             listArgs = ['find', self._m_sDstModulesDir]
-            eme = ExternalModuleEnumerator(bFirmware = False, bModules = True)
-            for sModuleFile in eme.files():
+            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
+            for sModuleFile in oote.files():
                listArgs.extend(('!', '-path', '*/' + sModuleFile))
             listArgs.extend(('(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'))
             subprocess.check_call(listArgs)
