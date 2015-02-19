@@ -125,11 +125,3 @@ class ExternalModuleEnumerator(object):
                      sPackageSlot = fileSlot.read().strip()
                   sPackage = self._smc_rePackageVersion.sub(':' + sPackageSlot, sPackage)
                yield sPackage, listFiles
-
-####################################################################################################
-# __main__
-
-if __name__ == '__main__':
-   # TODO: test suite.
-   import sys
-   sys.exit(0)
