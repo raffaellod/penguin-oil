@@ -90,19 +90,23 @@ def main(iterArgs):
    )
    args = argparser.parse_args()
 
-   gen = kerneltools.Generator(
-      sPArch = args.arch,
-      sIrfSourcePath = args.initramfs,
-      sRoot = args.root,
-      sSourcePath = args.source
-   )
-   gen.prepare()
-   gen.build_kernel(args.oot_modules)
-   if gen.with_initramfs():
-      gen.build_initramfs(args.initramfs_debug)
-   gen.package(args.overlay)
-   if args.install:
-      gen.install()
+   try:
+      gen = kerneltools.Generator(
+         sPArch = args.arch,
+         sIrfSourcePath = args.initramfs,
+         sRoot = args.root,
+         sSourcePath = args.source
+      )
+      gen.prepare()
+      gen.build_kernel(args.oot_modules)
+      if gen.with_initramfs():
+         gen.build_initramfs(args.initramfs_debug)
+      gen.package(args.overlay)
+      if args.install:
+         gen.install()
+   except kerneltools.GeneratorError:
+      # kerneltools.Generator already displayed error information, so just return.
+      return 1
    return 0
 
 if __name__ == '__main__':

@@ -21,4 +21,4 @@
 """Tools to build and maintain Linux from sources."""
 
 from .OutOfTreeEnumerator import OutOfTreeEnumerator
-from .Generator import Generator
+from .Generator import Generator, GeneratorError
