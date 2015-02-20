@@ -155,297 +155,6 @@ class Generator(object):
             pass
       self._m_fileNullOut.close()
 
-   def eindent(self):
-      """TODO: comment"""
-
-      self._m_sIndent += '  '
-
-   def eoutdent(self):
-      """TODO: comment"""
-
-      self._m_sIndent = self._m_sIndent[:-2]
-
-   def einfo(self, s):
-      """TODO: comment"""
-
-      sys.stdout.write(self._m_sIndent + '[I] ' + s)
-
-   def ewarn(self, s):
-      """TODO: comment"""
-
-      sys.stdout.write(self._m_sIndent + '[W] ' + s)
-
-   def eerror(self, s):
-      """TODO: comment"""
-
-      sys.stdout.write(self._m_sIndent + '[E] ' + s)
-      raise Exception(s)
-
-   def get_kernel_version(self):
-      """Retrieves the kernel version for the source directory specified in the constructor.
-
-      str return
-         Kernel version reported by “make kernelversion”.
-      """
-
-      # Ignore errors; if no source directory can be found, we’ll take care of failing.
-      with subprocess.Popen(
-         self._m_listKMakeArgs + ['-C', self._m_sSourcePath, '-s', 'kernelversion'],
-         stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
-      ) as procMake:
-         sStdOut = procMake.communicate()[0].rstrip()
-         # Expect a single line; if multiple lines are present, they must be errors.
-         if procMake.returncode == 0 and '\n' not in sStdOut:
-            return sStdOut
-      return None
-
-   def with_initramfs(self):
-      """Returns True if an initramfs can and should be built for the kernel.
-
-      bool return
-         True if build_initramfs() should be called, or False otherwise.
-      """
-
-      return bool(self._m_sIrfSourcePath)
-
-   def load_kernel_config(self, sConfigPath):
-      """Loads the specified kernel configuration file (.config), storing the entries defined in it
-      and verifying that it’s for the correct kernel version.
-
-      str sConfigPath
-         Path to the configuration file.
-      """
-
-      dictKernelConfig = {}
-      with open(sConfigPath, 'r') as fileConfig:
-         bConfigVersionFound = False
-         for iLine, sLine in enumerate(fileConfig, start = 1):
-            sLine = sLine.rstrip()
-            if not bConfigVersionFound:
-               # In the first 5 lines, expect to find a line that indicates the kernel has already
-               # been configured.
-               if iLine < 5:
-                  # Match: “Linux/i386 2.6.37 Kernel Configuration”.
-                  match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration$', sLine)
-                  if not match:
-                     # Match: “Linux kernel version: 2.6.34”.
-                     match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
-                  if match:
-                     bConfigVersionFound = match.group('version') == self._m_sKernelVersion
-                     continue
-               else:
-                  self.eerror('This kernel needs to be configured first.\n')
-                  self.eerror('Try:\n')
-                  self.eerror("  make -C '{}' menuconfig\n".format(self._m_sSourcePath))
-            else:
-               match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
-               if match:
-                  sValue = match.group('value')
-                  if sValue == 'y':
-                     oValue = True
-                  elif sValue == 'n' or sValue == 'm':
-                     # Consider modules as missing, since checks for CONFIG_* values in this class
-                     # would hardly consider modules as satisfying.
-                     continue
-                  elif len(sValue) >= 2 and sValue[0] == '"' and sValue[-1] == '"':
-                     oValue = sValue[1:-1]
-                  else:
-                     oValue = sValue
-                  dictKernelConfig[match.group('name')] = oValue
-      self._m_dictKernelConfig = dictKernelConfig
-
-   def make_package_name(self):
-      """Generates category, name and version for the binary package that will be generated."""
-
-      self._m_sCategory = 'sys-kernel'
-      match = re.match(
-         r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
-      )
-      # Build the package name.
-      if match.group('extra'):
-         self._m_sPackageName = match.group('extra')
-      else:
-         self._m_sPackageName = 'vanilla'
-      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
-      if sLocalVersion:
-         self._m_sPackageName += sLocalVersion
-      self._m_sPackageName += '-bin'
-      # Build the package name with version.
-      self._m_sPackageVersion = match.group('ver')
-      if match.group('rev'):
-         self._m_sPackageVersion += match.group('rev')
-
-   def prepare(self):
-      """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
-
-      self.einfo('Preparing to build kernel\n')
-
-      # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
-      dictPArchToKArch = {
-         'amd64': 'x86_64',
-         'arm64': 'aarch64',
-         'm68k' : 'm68',
-         'ppc'  : 'powerpc',
-         'ppc64': 'powerpc64',
-         'x86'  : 'i386',
-      }
-      self._m_sKArch = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
-      os.environ['ARCH'] = self._m_sKArch
-      os.environ['PORTAGE_ARCH'] = self._m_sPArch
-
-      # Ensure we have a valid kernel, and get its version.
-      sKernelVersion = self.get_kernel_version()
-      if not sKernelVersion:
-         # No kernel was specified: find one, first checking if the standard symlink is in place.
-         self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
-         if not os.path.isdir(self._m_sSourcePath):
-            self.eerror(
-               'No suitable kernel source directory was found; please consider using the\n'
-            )
-            self.eerror(
-               '--source option, or invoke kernel-gen from within a kernel source directory.\n'
-            )
-            self.eerror('\n')
-            self.eerror(
-               'You can enable the \033[1;34msymlink\033[0m USE flag to keep an up-to-date ' +
-               'symlink to your\n'
-            )
-            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.\n')
-            self.eerror('\n')
-            self.eerror('Unable to locate a kernel source directory.\n')
-         sKernelVersion = self.get_kernel_version()
-         if not sKernelVersion:
-            raise Exception('unable to determine the version of the selected kernel source')
-      # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
-      self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
-      self._m_sKernelVersion = sKernelVersion
-
-      self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
-      self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
-      self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
-      os.environ['KERNEL_DIR'] = self._m_sSourcePath
-      os.environ['ROOT'] = self._m_sRoot
-
-      # Verify that the kernel has been configured, and get its release string (= version + local).
-      self.load_kernel_config(self._m_sSrcConfigPath)
-      self._m_sKernelRelease = self.kmake_get('kernelrelease')
-
-      # Get compressor to use for the kernel image from the config file.
-      for compr in self._smc_listCompressors:
-         if ('CONFIG_KERNEL_' + compr.config_name()) in self._m_dictKernelConfig:
-            comprKernel = compr
-            break
-      else:
-         comprKernel = None
-
-      # Determine the location of the generated kernel image.
-      sImagePath = self.kmake_get('image_name')
-      self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sImagePath)
-      del sImagePath
-
-      if self._m_sIrfSourcePath:
-         # Check for initramfs/initrd support with the config file.
-         if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
-            raise Exception('the selected kernel was not configured to support initramfs/initrd')
-         if self._m_sIrfSourcePath is True:
-            self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
-         if not os.path.isdir(self._m_sIrfSourcePath):
-            self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
-            self.ewarn('but no suitable initramfs source directory was specified or found.\n')
-            self.ewarn('No initramfs will be created.\n')
-            self._m_sIrfSourcePath = False
-
-      if self.with_initramfs():
-         # TODO: check that these CONFIG_ match:
-         #   +DEVTMPFS
-
-         # Check for an enabled initramfs compression method.
-         listEnabledIrfCompressors = []
-         for compr in self._smc_listCompressors:
-            if ('CONFIG_RD_' + compr.config_name()) in self._m_dictKernelConfig:
-               if compr is comprKernel:
-                  # We can pick the same compression for kernel image and initramfs.
-                  self._m_comprIrf = comprKernel
-                  break
-               # Not the same as the kernel image, but make a note of this in case the condition
-               # above is never satisfied.
-               listEnabledIrfCompressors.append(compr)
-         # If this is still None, pick the first enabled compression method, if any.
-         if not self._m_comprIrf and listEnabledIrfCompressors:
-            self._m_comprIrf = listEnabledIrfCompressors[0]
-         self._m_sSrcIrfArchiveFile = os.path.join(self._m_sTmpDir, 'initramfs.cpio')
-         if self._m_comprIrf:
-            self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
-
-      # Determine if cross-compiling.
-      self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
-      if self._m_sCrossCompiler:
-         os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
-
-   def build_kernel(self, bRebuildOutOfTreeModules = True):
-      """Builds the kernel image and modules.
-
-      bool bRebuildOutOfTreeModules
-         If True, packages that install out-of-tree modules will be rebuilt in order to ensure
-         binary compatibility with the kernel being built.
-      """
-
-      self.einfo('Ready to build:\n')
-      self.eindent()
-      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelRelease, self._m_sKArch))
-      self.einfo('from \033[1;37m{}\033[0m\n'.format(self._m_sSourcePath))
-
-      if self._m_sIrfSourcePath:
-         # Check that a valid initramfs directory was specified.
-         self._m_sIrfSourcePath = os.path.realpath(self._m_sIrfSourcePath)
-         self.einfo('with initramfs from \033[1;37m{}\033[0m\n'.format(self._m_sIrfSourcePath))
-      if self._m_sCrossCompiler:
-         self.einfo('cross-compiled with \033[1;37m{}\033[0m toolchain\n'.format(
-            self._m_sCrossCompiler
-         ))
-      self.eoutdent()
-
-      # Use distcc, if enabled.
-      # TODO: also add HOSTCC.
-      if 'distcc' in self._m_pconfig.features:
-         self.einfo('Distributed C compiler (distcc) enabled\n')
-         self._m_listKMakeArgs.append('CC=distcc')
-         sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
-         iOldMask = os.umask(0o002)
-         os.makedirs(sDistCCDir, exist_ok = True)
-         os.umask(iOldMask)
-         os.environ['DISTCC_DIR'] = sDistCCDir
-
-      # Only invoke make if .config was changed since last compilation.
-      # Note that this check only works due to what we’ll do after invoking kmake (see below, at the
-      # end of the if block), because kmake won’t touch the kernel image if .config doesn’t require
-      # so, which means that .config can be still more recent than the image even after kmake
-      # completes, and this would cause this if branch to be always entered.
-      if not os.path.exists(self._m_sSrcImagePath) or \
-         os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
-      :
-         if bRebuildOutOfTreeModules:
-            self.einfo('Preparing to rebuild out-of-tree kernel modules\n')
-            subprocess.check_call(
-               self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
-            )
-            self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
-
-            self.einfo('Rebuilding out-of-tree kernel modules\n')
-            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
-            listModulePackages = list(oote.packages())
-            if listModulePackages:
-               subprocess.check_call([
-                  self._m_sCrossCompiler + 'emerge',
-                  '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
-               ] + listModulePackages, stdout = self._m_fileNullOut)
-
-         self.einfo('Building kernel image and in-tree modules\n')
-         subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
-
-         # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
-         os.utime(self._m_sSrcImagePath, None)
-
    def build_initramfs(self, bDebug = False):
       """Builds an initramfs for the kernel generated by build_kernel().
 
@@ -578,6 +287,114 @@ class Generator(object):
 
       self.eoutdent()
 
+   def build_kernel(self, bRebuildOutOfTreeModules = True):
+      """Builds the kernel image and modules.
+
+      bool bRebuildOutOfTreeModules
+         If True, packages that install out-of-tree modules will be rebuilt in order to ensure
+         binary compatibility with the kernel being built.
+      """
+
+      self.einfo('Ready to build:\n')
+      self.eindent()
+      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelRelease, self._m_sKArch))
+      self.einfo('from \033[1;37m{}\033[0m\n'.format(self._m_sSourcePath))
+
+      if self._m_sIrfSourcePath:
+         # Check that a valid initramfs directory was specified.
+         self._m_sIrfSourcePath = os.path.realpath(self._m_sIrfSourcePath)
+         self.einfo('with initramfs from \033[1;37m{}\033[0m\n'.format(self._m_sIrfSourcePath))
+      if self._m_sCrossCompiler:
+         self.einfo('cross-compiled with \033[1;37m{}\033[0m toolchain\n'.format(
+            self._m_sCrossCompiler
+         ))
+      self.eoutdent()
+
+      # Use distcc, if enabled.
+      # TODO: also add HOSTCC.
+      if 'distcc' in self._m_pconfig.features:
+         self.einfo('Distributed C compiler (distcc) enabled\n')
+         self._m_listKMakeArgs.append('CC=distcc')
+         sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
+         iOldMask = os.umask(0o002)
+         os.makedirs(sDistCCDir, exist_ok = True)
+         os.umask(iOldMask)
+         os.environ['DISTCC_DIR'] = sDistCCDir
+
+      # Only invoke make if .config was changed since last compilation.
+      # Note that this check only works due to what we’ll do after invoking kmake (see below, at the
+      # end of the if block), because kmake won’t touch the kernel image if .config doesn’t require
+      # so, which means that .config can be still more recent than the image even after kmake
+      # completes, and this would cause this if branch to be always entered.
+      if not os.path.exists(self._m_sSrcImagePath) or \
+         os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
+      :
+         if bRebuildOutOfTreeModules:
+            self.einfo('Preparing to rebuild out-of-tree kernel modules\n')
+            subprocess.check_call(
+               self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
+            )
+            self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
+
+            self.einfo('Rebuilding out-of-tree kernel modules\n')
+            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
+            listModulePackages = list(oote.packages())
+            if listModulePackages:
+               subprocess.check_call([
+                  self._m_sCrossCompiler + 'emerge',
+                  '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
+               ] + listModulePackages, stdout = self._m_fileNullOut)
+
+         self.einfo('Building kernel image and in-tree modules\n')
+         subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
+
+         # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
+         os.utime(self._m_sSrcImagePath, None)
+
+   def eerror(self, s):
+      """TODO: comment"""
+
+      sys.stdout.write(self._m_sIndent + '[E] ' + s)
+      raise Exception(s)
+
+   def eindent(self):
+      """TODO: comment"""
+
+      self._m_sIndent += '  '
+
+   def einfo(self, s):
+      """TODO: comment"""
+
+      sys.stdout.write(self._m_sIndent + '[I] ' + s)
+
+   def eoutdent(self):
+      """TODO: comment"""
+
+      self._m_sIndent = self._m_sIndent[:-2]
+
+   def ewarn(self, s):
+      """TODO: comment"""
+
+      sys.stdout.write(self._m_sIndent + '[W] ' + s)
+
+   def get_kernel_version(self):
+      """Retrieves the kernel version for the source directory specified in the constructor.
+
+      str return
+         Kernel version reported by “make kernelversion”.
+      """
+
+      # Ignore errors; if no source directory can be found, we’ll take care of failing.
+      with subprocess.Popen(
+         self._m_listKMakeArgs + ['-C', self._m_sSourcePath, '-s', 'kernelversion'],
+         stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
+      ) as procMake:
+         sStdOut = procMake.communicate()[0].rstrip()
+         # Expect a single line; if multiple lines are present, they must be errors.
+         if procMake.returncode == 0 and '\n' not in sStdOut:
+            return sStdOut
+      return None
+
    def install(self):
       """Installs the generated kernel binary package."""
 
@@ -604,6 +421,73 @@ class Generator(object):
       if '\n' in sOut:
          self.eerror('unexpected output by make {}:\n{}'.format(sTarget, sOut))
       return sOut
+
+   def load_kernel_config(self, sConfigPath):
+      """Loads the specified kernel configuration file (.config), storing the entries defined in it
+      and verifying that it’s for the correct kernel version.
+
+      str sConfigPath
+         Path to the configuration file.
+      """
+
+      dictKernelConfig = {}
+      with open(sConfigPath, 'r') as fileConfig:
+         bConfigVersionFound = False
+         for iLine, sLine in enumerate(fileConfig, start = 1):
+            sLine = sLine.rstrip()
+            if not bConfigVersionFound:
+               # In the first 5 lines, expect to find a line that indicates the kernel has already
+               # been configured.
+               if iLine < 5:
+                  # Match: “Linux/i386 2.6.37 Kernel Configuration”.
+                  match = re.match(r'^# Linux/\S* (?P<version>\S*) Kernel Configuration$', sLine)
+                  if not match:
+                     # Match: “Linux kernel version: 2.6.34”.
+                     match = re.match(r'^# Linux kernel version: (?P<version>\S+)', sLine)
+                  if match:
+                     bConfigVersionFound = match.group('version') == self._m_sKernelVersion
+                     continue
+               else:
+                  self.eerror('This kernel needs to be configured first.\n')
+                  self.eerror('Try:\n')
+                  self.eerror("  make -C '{}' menuconfig\n".format(self._m_sSourcePath))
+            else:
+               match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
+               if match:
+                  sValue = match.group('value')
+                  if sValue == 'y':
+                     oValue = True
+                  elif sValue == 'n' or sValue == 'm':
+                     # Consider modules as missing, since checks for CONFIG_* values in this class
+                     # would hardly consider modules as satisfying.
+                     continue
+                  elif len(sValue) >= 2 and sValue[0] == '"' and sValue[-1] == '"':
+                     oValue = sValue[1:-1]
+                  else:
+                     oValue = sValue
+                  dictKernelConfig[match.group('name')] = oValue
+      self._m_dictKernelConfig = dictKernelConfig
+
+   def make_package_name(self):
+      """Generates category, name and version for the binary package that will be generated."""
+
+      self._m_sCategory = 'sys-kernel'
+      match = re.match(
+         r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
+      )
+      # Build the package name.
+      if match.group('extra'):
+         self._m_sPackageName = match.group('extra')
+      else:
+         self._m_sPackageName = 'vanilla'
+      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
+      if sLocalVersion:
+         self._m_sPackageName += sLocalVersion
+      self._m_sPackageName += '-bin'
+      # Build the package name with version.
+      self._m_sPackageVersion = match.group('ver')
+      if match.group('rev'):
+         self._m_sPackageVersion += match.group('rev')
 
    def package(self, sOverlayName = None):
       """Generates a Portage binary package (.tbz2) containing the kernel image, in-tree modules,
@@ -681,3 +565,119 @@ class Generator(object):
             procClean.communicate()
          os.unlink(sEbuildFilePath)
          # TODO: delete the ebuild directory if now it only contains the manifest file.
+
+   def prepare(self):
+      """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
+
+      self.einfo('Preparing to build kernel\n')
+
+      # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
+      dictPArchToKArch = {
+         'amd64': 'x86_64',
+         'arm64': 'aarch64',
+         'm68k' : 'm68',
+         'ppc'  : 'powerpc',
+         'ppc64': 'powerpc64',
+         'x86'  : 'i386',
+      }
+      self._m_sKArch = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
+      os.environ['ARCH'] = self._m_sKArch
+      os.environ['PORTAGE_ARCH'] = self._m_sPArch
+
+      # Ensure we have a valid kernel, and get its version.
+      sKernelVersion = self.get_kernel_version()
+      if not sKernelVersion:
+         # No kernel was specified: find one, first checking if the standard symlink is in place.
+         self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
+         if not os.path.isdir(self._m_sSourcePath):
+            self.eerror(
+               'No suitable kernel source directory was found; please consider using the\n'
+            )
+            self.eerror(
+               '--source option, or invoke kernel-gen from within a kernel source directory.\n'
+            )
+            self.eerror('\n')
+            self.eerror(
+               'You can enable the \033[1;34msymlink\033[0m USE flag to keep an up-to-date ' +
+               'symlink to your\n'
+            )
+            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.\n')
+            self.eerror('\n')
+            self.eerror('Unable to locate a kernel source directory.\n')
+         sKernelVersion = self.get_kernel_version()
+         if not sKernelVersion:
+            raise Exception('unable to determine the version of the selected kernel source')
+      # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
+      self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
+      self._m_sKernelVersion = sKernelVersion
+
+      self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
+      self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
+      self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
+      os.environ['KERNEL_DIR'] = self._m_sSourcePath
+      os.environ['ROOT'] = self._m_sRoot
+
+      # Verify that the kernel has been configured, and get its release string (= version + local).
+      self.load_kernel_config(self._m_sSrcConfigPath)
+      self._m_sKernelRelease = self.kmake_get('kernelrelease')
+
+      # Get compressor to use for the kernel image from the config file.
+      for compr in self._smc_listCompressors:
+         if ('CONFIG_KERNEL_' + compr.config_name()) in self._m_dictKernelConfig:
+            comprKernel = compr
+            break
+      else:
+         comprKernel = None
+
+      # Determine the location of the generated kernel image.
+      sImagePath = self.kmake_get('image_name')
+      self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sImagePath)
+      del sImagePath
+
+      if self._m_sIrfSourcePath:
+         # Check for initramfs/initrd support with the config file.
+         if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
+            raise Exception('the selected kernel was not configured to support initramfs/initrd')
+         if self._m_sIrfSourcePath is True:
+            self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
+         if not os.path.isdir(self._m_sIrfSourcePath):
+            self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
+            self.ewarn('but no suitable initramfs source directory was specified or found.\n')
+            self.ewarn('No initramfs will be created.\n')
+            self._m_sIrfSourcePath = False
+
+      if self.with_initramfs():
+         # TODO: check that these CONFIG_ match:
+         #   +DEVTMPFS
+
+         # Check for an enabled initramfs compression method.
+         listEnabledIrfCompressors = []
+         for compr in self._smc_listCompressors:
+            if ('CONFIG_RD_' + compr.config_name()) in self._m_dictKernelConfig:
+               if compr is comprKernel:
+                  # We can pick the same compression for kernel image and initramfs.
+                  self._m_comprIrf = comprKernel
+                  break
+               # Not the same as the kernel image, but make a note of this in case the condition
+               # above is never satisfied.
+               listEnabledIrfCompressors.append(compr)
+         # If this is still None, pick the first enabled compression method, if any.
+         if not self._m_comprIrf and listEnabledIrfCompressors:
+            self._m_comprIrf = listEnabledIrfCompressors[0]
+         self._m_sSrcIrfArchiveFile = os.path.join(self._m_sTmpDir, 'initramfs.cpio')
+         if self._m_comprIrf:
+            self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
+
+      # Determine if cross-compiling.
+      self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+      if self._m_sCrossCompiler:
+         os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
+
+   def with_initramfs(self):
+      """Returns True if an initramfs can and should be built for the kernel.
+
+      bool return
+         True if build_initramfs() should be called, or False otherwise.
+      """
+
+      return bool(self._m_sIrfSourcePath)
