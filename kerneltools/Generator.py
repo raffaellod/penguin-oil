@@ -199,23 +199,6 @@ class Generator(object):
             return sStdOut
       return None
 
-   def build_dst_paths(self, sRoot):
-      """Calculates the destination paths for each file to be installed/packaged.
-
-      str sRoot
-         Absolute path to which the calculated paths will be relative.
-      """
-
-      self._m_sDstImagePath = os.path.join(sRoot, 'boot/linux-' + self._m_sKernelRelease)
-      self._m_sDstIrfArchiveFile = os.path.join(sRoot, 'boot/initramfs-{}.cpio'.format(
-         self._m_sKernelRelease
-      ))
-      if self._m_comprIrf:
-         self._m_sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
-      self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-'     + self._m_sKernelRelease)
-      self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelRelease)
-      self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/'     + self._m_sKernelRelease)
-
    def with_initramfs(self):
       """Returns True if an initramfs can and should be built for the kernel.
 
@@ -663,12 +646,12 @@ class Generator(object):
          sPackageRoot = match.group('D')
 
          # Inject the package contents into ${D}.
-         self.build_dst_paths(sPackageRoot)
          self.einfo('Adding kernel image\n')
+         sKR = self._m_sKernelRelease
          os.mkdir(os.path.join(sPackageRoot, 'boot'))
-         shutil.copy2(self._m_sSrcImagePath,  self._m_sDstImagePath)
-         shutil.copy2(self._m_sSrcConfigPath, self._m_sDstConfigPath)
-         shutil.copy2(self._m_sSrcSysmapPath, self._m_sDstSysmapPath)
+         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-'      + sKR))
+         shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-'     + sKR))
+         shutil.copy2(self._m_sSrcSysmapPath, os.path.join(sPackageRoot, 'boot/System.map-' + sKR))
          self.einfo('Adding modules\n')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
@@ -676,7 +659,10 @@ class Generator(object):
          )
          if self.with_initramfs():
             self.einfo('Adding initramfs\n')
-            shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
+            sDstIrfArchiveFile = os.path.join(sPackageRoot, 'boot/initramfs-{}.cpio'.format(sKR))
+            if self._m_comprIrf:
+               sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
+            shutil.copy2(self._m_sSrcIrfArchiveFile, sDstIrfArchiveFile)
 
          # Complete the package creation, which will grab everything that’s in ${D}.
          self.einfo('Creating package\n')
