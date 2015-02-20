@@ -523,9 +523,10 @@ class Generator(object):
          # (sIrfWorkDir).
          self.einfo('Collecting file names\n')
          listIrfContents = []
+         cchIrfWorkDir = len(sIrfWorkDir) + 1
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
             # Strip the work directory, changing sIrfWorkDir into ‘.’.
-            sBaseDir = sBaseDir[len(sIrfWorkDir) + 1:]
+            sBaseDir = sBaseDir[cchIrfWorkDir:]
             if sBaseDir:
                sBaseDir += os.sep
             for sFileName in listFileNames:
