@@ -312,6 +312,27 @@ class Generator(object):
                   dictKernelConfig[match.group('name')] = oValue
       self._m_dictKernelConfig = dictKernelConfig
 
+   def make_package_name(self):
+      """Generates category, name and version for the binary package that will be generated."""
+
+      self._m_sCategory = 'sys-kernel'
+      match = re.match(
+         r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
+      )
+      # Build the package name.
+      if match.group('extra'):
+         self._m_sPackageName = match.group('extra')
+      else:
+         self._m_sPackageName = 'vanilla'
+      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
+      if sLocalVersion:
+         self._m_sPackageName += sLocalVersion
+      self._m_sPackageName += '-bin'
+      # Build the package name with version.
+      self._m_sPackageVersion = match.group('ver')
+      if match.group('rev'):
+         self._m_sPackageVersion += match.group('rev')
+
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
 
@@ -615,127 +636,13 @@ class Generator(object):
       self.eoutdent()
 
    def install(self):
-      """Installs the kernel image, modules and optional initramfs to their respective positions
-      within the root directory specified in the constructor.
-      """
+      """Installs the generated kernel binary package."""
 
-      self.build_dst_paths(self._m_sRoot)
-
-      if self._m_sRoot == '/':
-         self.einfo('Installing kernel\n')
-      else:
-         self.einfo('Installing kernel to {}\n'.format(self._m_sRoot))
-      self.eindent()
-
-      # Ensure /boot is mounted.
-      bUnmountBoot = False
-      sBootDir = os.path.join(self._m_sRoot, 'boot')
-      if not os.path.isdir(sBootDir):
-         os.mkdir(sBootDir)
-      # /boot should contain a symlink to itself (“.”) named “boot”.
-      if not os.path.isdir(os.path.join(sBootDir, 'boot')):
-         # Maybe /boot needs to be mounted. Can’t just run mount /boot, since sBootDir is not
-         # necessarily “/”.
-         with open(os.path.join(self._m_sRoot, 'etc/fstab'), 'r') as fileFsTab:
-            for sLine in fileFsTab:
-               # Look for a non-comment line for /boot.
-               if re.match(r'^[^#]\S*\s+/boot\s', sLine):
-                  # Break up the line.
-                  listFields = re.split(r'\s+', sLine)
-                  self.einfo('Mounting {} to {}\n'.format(listFields[0], sBootDir))
-                  subprocess.check_call((
-                     'mount', listFields[0], '-t', listFields[2], '-o', listFields[3], sBootDir
-                  ), stdout = self._m_fileNullOut)
-                  bUnmountBoot = True
-                  break
-
-      # Use a try/finally construct to ensure we do unmount /boot if we mounted it.
-      try:
-         cbKernelImage = 0
-         cbModules = 0
-         cbIrfArchive = 0
-         # We’ll remove any initramfs-${self._m_sKernelRelease}.cpio.*, not just the one we’re going
-         # to replace; this ensures we don’t leave around a leftover initramfs just because it uses
-         # a different compression algorithm.
-         sDstIrfArchiveFileNoExt = os.path.splitext(self._m_sDstIrfArchiveFile)[0]
-         tplDstIrfArchiveFiles = tuple(filter(os.path.exists, [
-            sDstIrfArchiveFileNoExt + compr.file_name_ext() for compr in self._smc_listCompressors
-         ]))
-         setAccessoryFilesSubst = set([
-            (self._m_sSrcImagePath,  self._m_sDstImagePath),
-            (self._m_sSrcConfigPath, self._m_sDstConfigPath),
-            (self._m_sSrcSysmapPath, self._m_sDstSysmapPath),
-         ])
-         if \
-            any(os.path.exists(sDstFilePath) for _, sDstFilePath in setAccessoryFilesSubst) or \
-            os.path.exists(self._m_sDstModulesDir) or tplDstIrfArchiveFiles \
-         :
-            self.einfo('Removing old files\n')
-
-            # Delete an old image.
-            try:
-               cbKernelImage = os.path.getsize(self._m_sDstImagePath)
-            except OSError:
-               pass
-            for _, sDstFilePath in setAccessoryFilesSubst:
-               try:
-                  os.unlink(sDstFilePath)
-               except OSError:
-                  pass
-
-            # Remove every in-tree kernel module, leaving only the out-of-tree ones.
-            cbModules = self.modules_size(self._m_sDstModulesDir)
-            listArgs = ['find', self._m_sDstModulesDir]
-            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
-            for sModuleFile in oote.files():
-               listArgs.extend(('!', '-path', '*/' + sModuleFile))
-            listArgs.extend(('(', '!', '-type', 'd', '-o', '-empty', ')', '-delete'))
-            subprocess.check_call(listArgs)
-
-            # Delete any initramfs archive.
-            for s in tplDstIrfArchiveFiles:
-               cbIrfArchive += os.path.getsize(s)
-               os.unlink(s)
-
-         self.einfo('Installing kernel image\n')
-         for sSrcFilePath, sDstFilePath in setAccessoryFilesSubst:
-            shutil.copy2(sSrcFilePath, sDstFilePath)
-         if cbKernelImage:
-            self.eindent()
-            self.einfo_sizediff('Kernel', cbKernelImage, os.path.getsize(self._m_sDstImagePath))
-            self.eoutdent()
-
-         self.einfo('Installing modules')
-         cModules = 0
-         with subprocess.Popen(
-            self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + self._m_sRoot, 'modules_install'],
-            stdout = subprocess.PIPE, universal_newlines = True
-         ) as procKmake:
-            for sLine in procKmake.stdout:
-               if re.match(r'^\s*INSTALL\s+\S+\.ko$', sLine):
-                  cModules += 1
-         sys.stdout.write(' ({})\n'.format(cModules))
-
-         if cbModules:
-            self.eindent()
-            self.einfo_sizediff('Modules', cbModules, self.modules_size(self._m_sDstModulesDir))
-            self.eoutdent()
-
-         if self.with_initramfs():
-            self.einfo('Installing initramfs\n')
-            shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
-            if cbIrfArchive:
-               self.eindent()
-               self.einfo_sizediff(
-                  'initramfs', cbIrfArchive, os.path.getsize(self._m_sDstIrfArchiveFile)
-               )
-               self.eoutdent()
-      finally:
-         if bUnmountBoot:
-            self.einfo('Unmounting {}\n'.format(sBootDir))
-            subprocess.check_call(('umount', sBootDir), stdout = self._m_fileNullOut)
-
-      self.eoutdent()
+      self.einfo('Installing kernel binary package\n')
+      subprocess.check_call((
+         self._m_sCrossCompiler + 'emerge', '--quiet', '--select', '--usepkgonly=y',
+         '={}/{}-{}'.format(self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion)
+      ), stdout = self._m_fileNullOut)
 
    def kmake_get(self, sTarget):
       """Runs kmake to build the specified informative target, such as “kernelrelease”.
@@ -756,31 +663,15 @@ class Generator(object):
       return sOut
 
    def package(self, sOverlayName = None):
-      """Generates a Portage binary package (.tbz2) containing the files that would be installed by
-      install(): kernel image, modules, and optional initramfs.
+      """Generates a Portage binary package (.tbz2) containing the kernel image, in-tree modules,
+      and optional initramfs.
 
       str sOverlayName
          Name of ther overlay in which the package ebuild will be added; defaults to the overlay
          with the highest priority.
       """
 
-      sCategory = 'sys-kernel'
-      match = re.match(
-         r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
-      )
-      # Build the package name.
-      if match.group('extra'):
-         sPackageName = match.group('extra')
-      else:
-         sPackageName = 'vanilla'
-      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
-      if sLocalVersion:
-         sPackageName += sLocalVersion
-      sPackageName += '-bin'
-      # Build the package name with version.
-      sPackageNameVersion = sPackageName + '-' + match.group('ver')
-      if match.group('rev'):
-         sPackageNameVersion += match.group('rev')
+      self.make_package_name()
       # Get the specified overlay or the one with the highest priority.
       if sOverlayName is None:
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
@@ -788,13 +679,14 @@ class Generator(object):
       if not povl:
          self.eerror('Unknown overlay: {}\n'.format(sOverlayName))
 
+      sPackageNameVersion = self._m_sPackageName + '-' + self._m_sPackageVersion
       self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m\n'.format(
-         sCategory, sPackageNameVersion, sOverlayName
+         self._m_sCategory, sPackageNameVersion, sOverlayName
       ))
       self.eindent()
 
       # Generate a new ebuild at the expected location in the selected overlay.
-      sEbuildFilePath = os.path.join(povl.location, sCategory, sPackageName)
+      sEbuildFilePath = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
       os.makedirs(sEbuildFilePath, exist_ok = True)
       sEbuildFilePath = os.path.join(sEbuildFilePath, sPackageNameVersion + '.ebuild')
       with open(sEbuildFilePath, 'wt') as fileEbuild:
