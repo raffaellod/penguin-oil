@@ -274,7 +274,7 @@ class Generator(object):
                # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
                # since it likes to output junk.
                with subprocess.Popen(
-                  ('cpio', '--create', '--format=newc', '--owner=0:0', '-0'),
+                  ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
                   stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
                ) as procCpio:
 #                  # Send cpio the list of files to package.
@@ -391,7 +391,7 @@ class Generator(object):
 
       # Ignore errors; if no source directory can be found, we’ll take care of failing.
       with subprocess.Popen(
-         self._m_listKMakeArgs + ['-C', self._m_sSourcePath, '-s', 'kernelversion'],
+         self._m_listKMakeArgs + ['--directory', self._m_sSourcePath, '--quiet', 'kernelversion'],
          stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
       ) as procMake:
          sStdOut = procMake.communicate()[0].rstrip()
@@ -419,7 +419,7 @@ class Generator(object):
       """
 
       sOut = subprocess.check_output(
-         self._m_listKMakeArgs + ['-s', sTarget],
+         self._m_listKMakeArgs + ['--quiet', sTarget],
          stderr = subprocess.STDOUT, universal_newlines = True
       )
       sOut = sOut.rstrip()
@@ -626,7 +626,7 @@ class Generator(object):
                self.eerror('Unable to determine the version of the selected kernel source')
                raise GeneratorError()
       # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
-      self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
+      self._m_listKMakeArgs[1:1] = ['--directory', self._m_sSourcePath]
       self._m_sKernelVersion = sKernelVersion
 
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
