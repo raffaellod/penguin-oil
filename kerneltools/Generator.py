@@ -828,7 +828,7 @@ class Generator(object):
             shutil.copy2(self._m_sSrcIrfArchiveFile, self._m_sDstIrfArchiveFile)
 
          # Complete the package creation, which will grab everything that’s in ${D}.
-         self.einfo('Creating archive\n')
+         self.einfo('Creating package\n')
          subprocess.check_call(
             ('ebuild', sEbuildFilePath, 'package'),
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
@@ -841,3 +841,5 @@ class Generator(object):
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          ) as procClean:
             procClean.communicate()
+         os.unlink(sEbuildFilePath)
+         # TODO: delete the ebuild directory if now it only contains the manifest file.
