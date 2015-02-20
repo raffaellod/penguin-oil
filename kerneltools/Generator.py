@@ -110,7 +110,6 @@ class Generator(object):
       DESCRIPTION="Linux kernel image and modules"
       HOMEPAGE="http://www.kernel.org"
 
-      # TODO: does mount-boot really allow installing files in /boot correctly?
       inherit mount-boot
 
       S="${WORKDIR}"
