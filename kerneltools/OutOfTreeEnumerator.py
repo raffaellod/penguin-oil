@@ -65,7 +65,7 @@ class OutOfTreeEnumerator(object):
       """Enumerates all packages that installed files matching the criteria specified in the
       constructor.
 
-      [bool bUseSlot]
+      bool bUseSlot
          If True (default), each package will end in its slot number instead of its version.
       str yield
          Package.
@@ -77,7 +77,7 @@ class OutOfTreeEnumerator(object):
    def packages_and_files(self, bUseSlot = True):
       """Enumerates all packages and/or files matching the criteria specified in the constructor.
 
-      [bool bUseSlot]
+      bool bUseSlot
          If True (default), each package will end in its slot number instead of its version.
       tuple(str, list(str)) yield
          A tuple containing the package and the matching files it contains.
