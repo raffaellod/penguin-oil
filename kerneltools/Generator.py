@@ -593,29 +593,39 @@ class Generator(object):
       os.environ['ARCH'] = self._m_sKArch
       os.environ['PORTAGE_ARCH'] = self._m_sPArch
 
-      # Ensure we have a valid kernel, and get its version.
-      sKernelVersion = self.get_kernel_version()
-      if not sKernelVersion:
-         # No kernel was specified: find one, first checking if the standard symlink is in place.
-         self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
-         if not os.path.isdir(self._m_sSourcePath):
-            self.eerror('No suitable kernel source directory was found; please consider using the')
-            self.eerror(
-               '--source option, or invoke kernel-gen from within a kernel source directory.'
-            )
-            self.eerror('')
-            self.eerror(
-               'You can enable the \033[1;34msymlink\033[0m USE flag to keep an up-to-date ' +
-               'symlink to your'
-            )
-            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.')
-            self.eerror('')
-            self.eerror('Unable to locate a kernel source directory.')
-            raise GeneratorError()
+      # Ensure we have a valid kernel source directory, and get its version.
+      if self._m_sSourcePath:
          sKernelVersion = self.get_kernel_version()
          if not sKernelVersion:
-            self.eerror('Unable to determine the version of the selected kernel source')
+            self.eerror('The path `{}\' doesn\'t seem to be a kernel source directory.'.format(
+               self._m_sSourcePath
+            ))
             raise GeneratorError()
+      else:
+         self._m_sSourcePath = os.getcwd()
+         sKernelVersion = self.get_kernel_version()
+         if not sKernelVersion:
+            # No kernel was found ${PWD}: checking if ony can be found at /usr/src/linux.
+            self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
+            if not os.path.isdir(self._m_sSourcePath):
+               self.eerror(
+                  'No suitable kernel source directory could be found; please specify one using'
+               )
+               self.eerror('the --source option, or invoke kernel-gen from within a kernel source')
+               self.eerror('directory.')
+               self.eerror(
+                  'Alternatively, you can enable the \033[1;34msymlink\033[0m USE flag to keep ' +
+                  'an up-to-date'
+               )
+               self.eerror(
+                  'symlink to your current kernel source directory in ' +
+                  '\033[1;36m/usr/src/linux\033[0m.'
+               )
+               raise GeneratorError()
+            sKernelVersion = self.get_kernel_version()
+            if not sKernelVersion:
+               self.eerror('Unable to determine the version of the selected kernel source')
+               raise GeneratorError()
       # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
       self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
       self._m_sKernelVersion = sKernelVersion

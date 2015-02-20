@@ -80,7 +80,7 @@ def main(iterArgs):
       help = 'Specify the root directory. Defaults to Portage\'s ${ROOT}.'
    )
    argparser.add_argument(
-      '-s', '--source', default = os.getcwd(),
+      '-s', '--source',
       help = 'Select the kernel source directory. Defaults to the current directory or ' +
              '`${ROOT}/usr/src/linux\'.'
    )
