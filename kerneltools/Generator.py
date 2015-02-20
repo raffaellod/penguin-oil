@@ -79,6 +79,14 @@ class Compressor(object):
       return self._m_sExt
 
 ####################################################################################################
+# GeneratorError
+
+class GeneratorError(Exception):
+   """Indicates a failure in the generation of a kernel."""
+
+   pass
+
+####################################################################################################
 # Generator
 
 class Generator(object):
@@ -147,7 +155,7 @@ class Generator(object):
       """Destructor."""
 
       if self._m_sSrcIrfArchiveFile:
-         self.einfo('Cleaning up temporary files\n')
+         self.einfo('Cleaning up temporary files')
          try:
             os.unlink(self._m_sSrcIrfArchiveFile)
          except OSError:
@@ -164,9 +172,10 @@ class Generator(object):
       """
 
       if not self._m_sIrfSourcePath:
-         raise Exception('no initramfs source path specified')
+         self.eerror('No initramfs source path specified')
+         raise GeneratorError()
 
-      self.einfo('Generating initramfs\n')
+      self.einfo('Generating initramfs')
       self.eindent()
 
       sPrevDir = os.getcwd()
@@ -176,7 +185,7 @@ class Generator(object):
       try:
          os.chdir(sIrfWorkDir)
 
-         self.einfo('Adding kernel modules\n')
+         self.einfo('Adding kernel modules')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
             stdout = self._m_fileNullOut
@@ -203,7 +212,7 @@ class Generator(object):
                      # Recursively remove the excluded directory.
                      shutil.rmtree(sDir, ignore_errors = True)
 
-         self.einfo('Adding out-of-tree firmware\n')
+         self.einfo('Adding out-of-tree firmware')
          # Create the folder beforehand; it not needed, we'll delete it later.
          sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
          sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
@@ -217,20 +226,20 @@ class Generator(object):
          sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
          if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
             # The initramfs has a build script; invoke it.
-            self.einfo('Invoking initramfs custom build script\n')
+            self.einfo('Invoking initramfs custom build script')
             self.eindent()
             # ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
             subprocess.check_call((sIrfBuild, ))
             self.eoutdent()
          else:
             # No build script; just copy every file.
-            self.einfo('Adding source files\n')
+            self.einfo('Adding source files')
             for sIrfFile in os.listdir(self._m_sIrfSourcePath):
                shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
          # Build a list with every file name for cpio to package, relative to the current directory
          # (sIrfWorkDir).
-         self.einfo('Collecting file names\n')
+         self.einfo('Collecting file names')
          listIrfContents = []
          cchIrfWorkDir = len(sIrfWorkDir) + 1
          for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
@@ -245,9 +254,7 @@ class Generator(object):
                self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease + '.ls'
             )
             with open(sIrfDumpFileName, 'w') as fileIrfDump:
-               self.einfo('Dumping contents of generated initramfs to {}\n'.format(
-                  sIrfDumpFileName
-               ))
+               self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
                subprocess.check_call(
                   ['ls', '-lR', '--color=always'] + listIrfContents,
                   stdout = fileIrfDump, universal_newlines = True
@@ -255,7 +262,7 @@ class Generator(object):
 #         byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
          del listIrfContents
 
-         self.einfo('Creating archive\n')
+         self.einfo('Creating archive')
          with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
             if self._m_comprIrf:
@@ -281,7 +288,7 @@ class Generator(object):
                   procCpio.communicate()
                procCompress.communicate()
       finally:
-         self.einfo('Cleaning up initramfs\n')
+         self.einfo('Cleaning up initramfs')
          os.chdir(sPrevDir)
          shutil.rmtree(sIrfWorkDir)
 
@@ -295,17 +302,17 @@ class Generator(object):
          binary compatibility with the kernel being built.
       """
 
-      self.einfo('Ready to build:\n')
+      self.einfo('Ready to build:')
       self.eindent()
-      self.einfo('\033[1;32mlinux-{}\033[0m ({})\n'.format(self._m_sKernelRelease, self._m_sKArch))
-      self.einfo('from \033[1;37m{}\033[0m\n'.format(self._m_sSourcePath))
+      self.einfo('\033[1;32mlinux-{}\033[0m ({})'.format(self._m_sKernelRelease, self._m_sKArch))
+      self.einfo('from \033[1;37m{}\033[0m'.format(self._m_sSourcePath))
 
       if self._m_sIrfSourcePath:
          # Check that a valid initramfs directory was specified.
          self._m_sIrfSourcePath = os.path.realpath(self._m_sIrfSourcePath)
-         self.einfo('with initramfs from \033[1;37m{}\033[0m\n'.format(self._m_sIrfSourcePath))
+         self.einfo('with initramfs from \033[1;37m{}\033[0m'.format(self._m_sIrfSourcePath))
       if self._m_sCrossCompiler:
-         self.einfo('cross-compiled with \033[1;37m{}\033[0m toolchain\n'.format(
+         self.einfo('cross-compiled with \033[1;37m{}\033[0m toolchain'.format(
             self._m_sCrossCompiler
          ))
       self.eoutdent()
@@ -313,7 +320,7 @@ class Generator(object):
       # Use distcc, if enabled.
       # TODO: also add HOSTCC.
       if 'distcc' in self._m_pconfig.features:
-         self.einfo('Distributed C compiler (distcc) enabled\n')
+         self.einfo('Distributed C compiler (distcc) enabled')
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
          iOldMask = os.umask(0o002)
@@ -330,13 +337,13 @@ class Generator(object):
          os.path.getmtime(self._m_sSrcConfigPath) > os.path.getmtime(self._m_sSrcImagePath) \
       :
          if bRebuildOutOfTreeModules:
-            self.einfo('Preparing to rebuild out-of-tree kernel modules\n')
+            self.einfo('Preparing to rebuild out-of-tree kernel modules')
             subprocess.check_call(
                self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
             )
-            self.einfo('Finished building linux-{}\n'.format(self._m_sKernelRelease))
+            self.einfo('Finished building linux-{}'.format(self._m_sKernelRelease))
 
-            self.einfo('Rebuilding out-of-tree kernel modules\n')
+            self.einfo('Rebuilding out-of-tree kernel modules')
             oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
             listModulePackages = list(oote.packages())
             if listModulePackages:
@@ -345,7 +352,7 @@ class Generator(object):
                   '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
                ] + listModulePackages, stdout = self._m_fileNullOut)
 
-         self.einfo('Building kernel image and in-tree modules\n')
+         self.einfo('Building kernel image and in-tree modules')
          subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
 
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
@@ -354,8 +361,7 @@ class Generator(object):
    def eerror(self, s):
       """TODO: comment"""
 
-      sys.stdout.write(self._m_sIndent + '[E] ' + s)
-      raise Exception(s)
+      print(self._m_sIndent + '[E] ' + s)
 
    def eindent(self):
       """TODO: comment"""
@@ -365,7 +371,7 @@ class Generator(object):
    def einfo(self, s):
       """TODO: comment"""
 
-      sys.stdout.write(self._m_sIndent + '[I] ' + s)
+      print(self._m_sIndent + '[I] ' + s)
 
    def eoutdent(self):
       """TODO: comment"""
@@ -375,7 +381,7 @@ class Generator(object):
    def ewarn(self, s):
       """TODO: comment"""
 
-      sys.stdout.write(self._m_sIndent + '[W] ' + s)
+      print(self._m_sIndent + '[W] ' + s)
 
    def get_kernel_version(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
@@ -398,7 +404,7 @@ class Generator(object):
    def install(self):
       """Installs the generated kernel binary package."""
 
-      self.einfo('Installing kernel binary package\n')
+      self.einfo('Installing kernel binary package')
       subprocess.check_call((
          self._m_sCrossCompiler + 'emerge', '--quiet', '--select', '--usepkgonly=y',
          '={}/{}-{}'.format(self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion)
@@ -419,7 +425,9 @@ class Generator(object):
       )
       sOut = sOut.rstrip()
       if '\n' in sOut:
-         self.eerror('unexpected output by make {}:\n{}'.format(sTarget, sOut))
+         self.eerror('Unexpected output by make {}:'.format(sTarget))
+         self.eerror(sOut)
+         raise GeneratorError()
       return sOut
 
    def load_kernel_config(self, sConfigPath):
@@ -448,9 +456,9 @@ class Generator(object):
                      bConfigVersionFound = match.group('version') == self._m_sKernelVersion
                      continue
                else:
-                  self.eerror('This kernel needs to be configured first.\n')
-                  self.eerror('Try:\n')
-                  self.eerror("  make -C '{}' menuconfig\n".format(self._m_sSourcePath))
+                  self.eerror('This kernel needs to be configured first. Try:')
+                  self.eerror("  make -C '{}' menuconfig".format(self._m_sSourcePath))
+                  raise GeneratorError()
             else:
                match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
                if match:
@@ -504,10 +512,11 @@ class Generator(object):
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
       povl = self._m_pconfig.repositories.prepos.get(sOverlayName)
       if not povl:
-         self.eerror('Unknown overlay: {}\n'.format(sOverlayName))
+         self.eerror('Unknown overlay: {}'.format(sOverlayName))
+         raise GeneratorError()
 
       sPackageNameVersion = self._m_sPackageName + '-' + self._m_sPackageVersion
-      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m\n'.format(
+      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m'.format(
          self._m_sCategory, sPackageNameVersion, sOverlayName
       ))
       self.eindent()
@@ -531,33 +540,33 @@ class Generator(object):
          sPackageRoot = match.group('D')
 
          # Inject the package contents into ${D}.
-         self.einfo('Adding kernel image\n')
+         self.einfo('Adding kernel image')
          sKR = self._m_sKernelRelease
          os.mkdir(os.path.join(sPackageRoot, 'boot'))
          shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-'      + sKR))
          shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-'     + sKR))
          shutil.copy2(self._m_sSrcSysmapPath, os.path.join(sPackageRoot, 'boot/System.map-' + sKR))
-         self.einfo('Adding modules\n')
+         self.einfo('Adding modules')
          subprocess.check_call(
             self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
             stdout = self._m_fileNullOut
          )
          if self.with_initramfs():
-            self.einfo('Adding initramfs\n')
+            self.einfo('Adding initramfs')
             sDstIrfArchiveFile = os.path.join(sPackageRoot, 'boot/initramfs-{}.cpio'.format(sKR))
             if self._m_comprIrf:
                sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
             shutil.copy2(self._m_sSrcIrfArchiveFile, sDstIrfArchiveFile)
 
          # Complete the package creation, which will grab everything that’s in ${D}.
-         self.einfo('Creating package\n')
+         self.einfo('Creating package')
          subprocess.check_call(
             ('ebuild', sEbuildFilePath, 'package'),
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          )
       finally:
          self.eoutdent()
-         self.einfo('Cleaning up package build temporary directory\n')
+         self.einfo('Cleaning up package build temporary directory')
          with subprocess.Popen(
             ('ebuild', sEbuildFilePath, 'clean'),
             env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
@@ -569,7 +578,7 @@ class Generator(object):
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
 
-      self.einfo('Preparing to build kernel\n')
+      self.einfo('Preparing to build kernel')
 
       # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
       dictPArchToKArch = {
@@ -590,23 +599,23 @@ class Generator(object):
          # No kernel was specified: find one, first checking if the standard symlink is in place.
          self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
          if not os.path.isdir(self._m_sSourcePath):
+            self.eerror('No suitable kernel source directory was found; please consider using the')
             self.eerror(
-               'No suitable kernel source directory was found; please consider using the\n'
+               '--source option, or invoke kernel-gen from within a kernel source directory.'
             )
-            self.eerror(
-               '--source option, or invoke kernel-gen from within a kernel source directory.\n'
-            )
-            self.eerror('\n')
+            self.eerror('')
             self.eerror(
                'You can enable the \033[1;34msymlink\033[0m USE flag to keep an up-to-date ' +
-               'symlink to your\n'
+               'symlink to your'
             )
-            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.\n')
-            self.eerror('\n')
-            self.eerror('Unable to locate a kernel source directory.\n')
+            self.eerror('current kernel source directory in \033[1;36m/usr/src/linux\033[0m.')
+            self.eerror('')
+            self.eerror('Unable to locate a kernel source directory.')
+            raise GeneratorError()
          sKernelVersion = self.get_kernel_version()
          if not sKernelVersion:
-            raise Exception('unable to determine the version of the selected kernel source')
+            self.eerror('Unable to determine the version of the selected kernel source')
+            raise GeneratorError()
       # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
       self._m_listKMakeArgs[1:1] = ['-C', self._m_sSourcePath]
       self._m_sKernelVersion = sKernelVersion
@@ -637,13 +646,14 @@ class Generator(object):
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
          if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
-            raise Exception('the selected kernel was not configured to support initramfs/initrd')
+            self.eerror('The selected kernel was not configured to support initramfs/initrd')
+            raise GeneratorError()
          if self._m_sIrfSourcePath is True:
             self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
          if not os.path.isdir(self._m_sIrfSourcePath):
-            self.ewarn('The selected kernel was configured to support initramfs/initrd,\n')
-            self.ewarn('but no suitable initramfs source directory was specified or found.\n')
-            self.ewarn('No initramfs will be created.\n')
+            self.ewarn('The selected kernel was configured to support initramfs/initrd,')
+            self.ewarn('but no suitable initramfs source directory was specified or found.')
+            self.ewarn('No initramfs will be created.')
             self._m_sIrfSourcePath = False
 
       if self.with_initramfs():
