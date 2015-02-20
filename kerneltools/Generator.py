@@ -456,7 +456,7 @@ class Generator(object):
                      continue
                else:
                   self.eerror('This kernel needs to be configured first. Try:')
-                  self.eerror("  make -C '{}' menuconfig".format(self._m_sSourcePath))
+                  self.eerror('  make -C \'{}\' menuconfig'.format(self._m_sSourcePath))
                   raise GeneratorError()
             else:
                match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
