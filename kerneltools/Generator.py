@@ -181,30 +181,6 @@ class Generator(object):
       sys.stdout.write(self._m_sIndent + '[E] ' + s)
       raise Exception(s)
 
-   def einfo_sizediff(self, sObject, cbOld, cbNew):
-      """Displays an einfo with a report on the size change (if any) of a (possibly not previously
-      existing) file or folder.
-
-      str sObject
-         Description of the object that was measured.
-      int cbOld
-         Size of the previous version of the object, in bytes.
-      int cbNew
-         Size of the new version of the object, in bytes.
-      """
-
-      if cbOld == cbNew:
-         self.einfo('{} size unchanged at {} KiB\n'.format(sObject, int((cbNew + 1023) / 1024)))
-      elif cbOld == 0:
-         self.einfo('{} size is {} KiB\n'.format(sObject, int((cbNew + 1023) / 1024)))
-      else:
-         self.einfo('{} size changed from {} KiB to {} KiB ({:+}%)\n'.format(
-            sObject,
-            int((cbOld + 1023) / 1024),
-            int((cbNew + 1023) / 1024),
-            int((cbNew - cbOld) * 100 / cbOld)
-         ))
-
    def get_kernel_version(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
@@ -239,23 +215,6 @@ class Generator(object):
       self._m_sDstConfigPath = os.path.join(sRoot, 'boot/config-'     + self._m_sKernelRelease)
       self._m_sDstSysmapPath = os.path.join(sRoot, 'boot/System.map-' + self._m_sKernelRelease)
       self._m_sDstModulesDir = os.path.join(sRoot, 'lib/modules/'     + self._m_sKernelRelease)
-
-   @staticmethod
-   def modules_size(sDir):
-      """Calculates the size of the kernel modules contained in the specified directory.
-
-      str sDir
-         Directory containing kernel modules.
-      int return
-         Total size of the kernel modules in sDir, in bytes.
-      """
-
-      cbModules = 0
-      for sBaseDir, _, listFileNames in os.walk(sDir):
-         for sFileName in listFileNames:
-            if sFileName.endswith('.ko'):
-               cbModules += os.path.getsize(os.path.join(sBaseDir, sFileName))
-      return cbModules
 
    def with_initramfs(self):
       """Returns True if an initramfs can and should be built for the kernel.
