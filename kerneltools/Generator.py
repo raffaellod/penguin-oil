@@ -101,26 +101,27 @@ class Generator(object):
       Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
       Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
    ]
-   _smc_sEbuildTemplate = re.sub(r'^ *', '', """
+   # ebuild template that will be dropped in the selected overlay and made into a binary package.
+   _smc_sEbuildTemplate = '''
       EAPI=5
 
-      LICENSE="GPL-2"
       SLOT="${PVR}"
-      KEYWORDS="${ARCH}"
       DESCRIPTION="Linux kernel image and modules"
       HOMEPAGE="http://www.kernel.org"
+      LICENSE="GPL-2"
 
       inherit mount-boot
 
-      S="${WORKDIR}"
-
+      KEYWORDS="${ARCH}"
       # Avoid stripping kernel binaries.
       RESTRICT="strip"
+
+      S="${WORKDIR}"
 
       src_install() {
          echo "KERNEL-GEN: D=${D}"
       }
-   """, 0, re.MULTILINE)
+   '''.replace('\n      ', '\n').rstrip(' ')
 
    def __init__(self, sPArch, sIrfSourcePath, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
