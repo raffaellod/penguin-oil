@@ -171,7 +171,7 @@ class Generator(object):
       """
 
       if not self._m_sIrfSourcePath:
-         self.eerror('No initramfs source path specified')
+         self.eerror('No initramfs source path specified.')
          raise GeneratorError()
 
       self.einfo('Generating initramfs')
@@ -623,7 +623,7 @@ class Generator(object):
                raise GeneratorError()
             sKernelVersion = self.get_kernel_version()
             if not sKernelVersion:
-               self.eerror('Unable to determine the version of the selected kernel source')
+               self.eerror('Unable to determine the version of the selected kernel source.')
                raise GeneratorError()
       # self._m_sSourcePath is valid; make it permanently part of self._m_listKMakeArgs.
       self._m_listKMakeArgs[1:1] = ['--directory', self._m_sSourcePath]
@@ -655,7 +655,7 @@ class Generator(object):
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
          if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
-            self.eerror('The selected kernel was not configured to support initramfs/initrd')
+            self.eerror('The selected kernel was not configured to support initramfs/initrd.')
             raise GeneratorError()
          if self._m_sIrfSourcePath is True:
             self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
