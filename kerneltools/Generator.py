@@ -126,7 +126,13 @@ class Generator(object):
    def __init__(self, sPArch, sIrfSourcePath, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
 
+      if sRoot:
+         # Set this now to override Portage’s default root.
+         os.environ['ROOT'] = sRoot
       self._m_pconfig = portage_config.config()
+      if not sRoot:
+         # Set this now to override the null sRoot with Portage’s default root.
+         os.environ['ROOT'] = sRoot = self._m_pconfig['ROOT']
       self._m_sCrossCompiler = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
@@ -139,11 +145,7 @@ class Generator(object):
          self._m_sPArch = self._m_pconfig['ARCH']
       else:
          self._m_sPArch = sPArch
-      self._m_sPRoot = self._m_pconfig['EROOT']
-      if sRoot is None:
-         self._m_sRoot = self._m_sPRoot
-      else:
-         self._m_sRoot = sRoot
+      self._m_sRoot = sRoot
       self._m_sSourcePath = sSourcePath
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
@@ -619,7 +621,7 @@ class Generator(object):
          sKernelVersion = self.kmake_call_kernelversion()
          if not sKernelVersion:
             # No kernel was found ${PWD}: checking if ony can be found at /usr/src/linux.
-            self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
+            self._m_sSourcePath = os.path.join(self._m_sRoot, 'usr/src/linux')
             if not os.path.isdir(self._m_sSourcePath):
                self.eerror(
                   'No suitable kernel source directory could be found; please specify one using'
@@ -647,7 +649,6 @@ class Generator(object):
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
       self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
       os.environ['KERNEL_DIR'] = self._m_sSourcePath
-      os.environ['ROOT'] = self._m_sRoot
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
       self.load_kernel_config(self._m_sSrcConfigPath)
@@ -672,7 +673,7 @@ class Generator(object):
             self.eerror('The selected kernel was not configured to support initramfs/initrd.')
             raise GeneratorError()
          if self._m_sIrfSourcePath is True:
-            self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
+            self._m_sIrfSourcePath = os.path.join(self._m_sRoot, 'usr/src/initramfs')
             if not os.path.isdir(self._m_sIrfSourcePath):
                self.ewarn('The selected kernel was configured to support initramfs/initrd,')
                self.ewarn('but no suitable initramfs source directory was specified or found.')
