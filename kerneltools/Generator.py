@@ -185,10 +185,7 @@ class Generator(object):
          os.chdir(sIrfWorkDir)
 
          self.einfo('Adding kernel modules')
-         subprocess.check_call(
-            self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install'],
-            stdout = self._m_fileNullOut
-         )
+         self.kmake_check_call('INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install')
          # TODO: configuration-driven exclusion of modules from the initramfs.
          setExcludedModDirs = set([
             'arch/x86/kvm',
@@ -337,9 +334,7 @@ class Generator(object):
       :
          if bRebuildOutOfTreeModules:
             self.einfo('Preparing to rebuild out-of-tree kernel modules')
-            subprocess.check_call(
-               self._m_listKMakeArgs + ['modules_prepare'], stdout = self._m_fileNullOut
-            )
+            self.kmake_check_call('modules_prepare')
             self.einfo('Finished building linux-{}'.format(self._m_sKernelRelease))
 
             self.einfo('Rebuilding out-of-tree kernel modules')
@@ -352,7 +347,7 @@ class Generator(object):
                ] + listModulePackages, stdout = self._m_fileNullOut)
 
          self.einfo('Building kernel image and in-tree modules')
-         subprocess.check_call(self._m_listKMakeArgs, stdout = self._m_fileNullOut)
+         self.kmake_check_call()
 
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
          os.utime(self._m_sSrcImagePath, None)
@@ -408,6 +403,18 @@ class Generator(object):
          if procMake.returncode == 0 and '\n' not in sOut:
             return sOut
       return None
+
+   def kmake_check_call(self, *iterArgs):
+      """Invokes kmake with the specified additional command-line arguments.
+
+      iterable(str*) iterArgs
+         Additional arguments to pass to kmake.
+      """
+
+      listArgs = list(self._m_listKMakeArgs)
+      listArgs.append('--quiet')
+      listArgs.extend(iterArgs)
+      subprocess.check_output(listArgs, stderr = self._m_fileNullOut)
 
    def kmake_check_output(self, sTarget):
       """Runs kmake to build the specified informative target, such as “kernelrelease”.
@@ -546,10 +553,7 @@ class Generator(object):
          shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-'     + sKR))
          shutil.copy2(self._m_sSrcSysmapPath, os.path.join(sPackageRoot, 'boot/System.map-' + sKR))
          self.einfo('Adding modules')
-         subprocess.check_call(
-            self._m_listKMakeArgs + ['INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install'],
-            stdout = self._m_fileNullOut
-         )
+         self.kmake_check_call('INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install')
          if self.with_initramfs():
             self.einfo('Adding initramfs')
             sDstIrfArchiveFile = os.path.join(sPackageRoot, 'boot/initramfs-{}.cpio'.format(sKR))
