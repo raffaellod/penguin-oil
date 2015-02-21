@@ -382,7 +382,16 @@ class Generator(object):
 
       print(self._m_sIndent + '[W] ' + s)
 
-   def get_kernel_version(self):
+   def install(self):
+      """Installs the generated kernel binary package."""
+
+      self.einfo('Installing kernel binary package')
+      subprocess.check_call((
+         self._m_sCrossCompiler + 'emerge', '--quiet', '--select', '--usepkgonly=y',
+         '={}/{}-{}'.format(self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion)
+      ), stdout = self._m_fileNullOut)
+
+   def kmake_call_kernelversion(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
 
       str return
@@ -394,22 +403,13 @@ class Generator(object):
          self._m_listKMakeArgs + ['--directory', self._m_sSourcePath, '--quiet', 'kernelversion'],
          stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
       ) as procMake:
-         sStdOut = procMake.communicate()[0].rstrip()
+         sOut = procMake.communicate()[0].rstrip()
          # Expect a single line; if multiple lines are present, they must be errors.
-         if procMake.returncode == 0 and '\n' not in sStdOut:
-            return sStdOut
+         if procMake.returncode == 0 and '\n' not in sOut:
+            return sOut
       return None
 
-   def install(self):
-      """Installs the generated kernel binary package."""
-
-      self.einfo('Installing kernel binary package')
-      subprocess.check_call((
-         self._m_sCrossCompiler + 'emerge', '--quiet', '--select', '--usepkgonly=y',
-         '={}/{}-{}'.format(self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion)
-      ), stdout = self._m_fileNullOut)
-
-   def kmake_get(self, sTarget):
+   def kmake_check_output(self, sTarget):
       """Runs kmake to build the specified informative target, such as “kernelrelease”.
 
       str sTarget
@@ -594,7 +594,7 @@ class Generator(object):
 
       # Ensure we have a valid kernel source directory, and get its version.
       if self._m_sSourcePath:
-         sKernelVersion = self.get_kernel_version()
+         sKernelVersion = self.kmake_call_kernelversion()
          if not sKernelVersion:
             self.eerror('The path `{}\' doesn\'t seem to be a kernel source directory.'.format(
                self._m_sSourcePath
@@ -602,7 +602,7 @@ class Generator(object):
             raise GeneratorError()
       else:
          self._m_sSourcePath = os.getcwd()
-         sKernelVersion = self.get_kernel_version()
+         sKernelVersion = self.kmake_call_kernelversion()
          if not sKernelVersion:
             # No kernel was found ${PWD}: checking if ony can be found at /usr/src/linux.
             self._m_sSourcePath = os.path.join(self._m_sPRoot, 'usr/src/linux')
@@ -621,7 +621,7 @@ class Generator(object):
                   '\033[1;36m/usr/src/linux\033[0m.'
                )
                raise GeneratorError()
-            sKernelVersion = self.get_kernel_version()
+            sKernelVersion = self.kmake_call_kernelversion()
             if not sKernelVersion:
                self.eerror('Unable to determine the version of the selected kernel source.')
                raise GeneratorError()
@@ -637,7 +637,7 @@ class Generator(object):
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
       self.load_kernel_config(self._m_sSrcConfigPath)
-      self._m_sKernelRelease = self.kmake_get('kernelrelease')
+      self._m_sKernelRelease = self.kmake_check_output('kernelrelease')
 
       # Get compressor to use for the kernel image from the config file.
       for compr in self._smc_listCompressors:
@@ -648,7 +648,7 @@ class Generator(object):
          comprKernel = None
 
       # Determine the location of the generated kernel image.
-      sImagePath = self.kmake_get('image_name')
+      sImagePath = self.kmake_check_output('image_name')
       self._m_sSrcImagePath = os.path.join(self._m_sSourcePath, sImagePath)
       del sImagePath
 
