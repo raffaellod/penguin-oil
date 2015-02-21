@@ -429,8 +429,7 @@ class Generator(object):
       sOut = subprocess.check_output(
          self._m_listKMakeArgs + ['--quiet', sTarget],
          stderr = subprocess.STDOUT, universal_newlines = True
-      )
-      sOut = sOut.rstrip()
+      ).rstrip()
       if '\n' in sOut:
          self.eerror('Unexpected output by make {}:'.format(sTarget))
          self.eerror(sOut)
