@@ -547,20 +547,30 @@ class Generator(object):
          sPackageRoot = match.group('D')
 
          # Inject the package contents into ${D}.
+
          self.einfo('Adding kernel image')
          sKR = self._m_sKernelRelease
          os.mkdir(os.path.join(sPackageRoot, 'boot'))
-         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-'      + sKR))
          shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-'     + sKR))
          shutil.copy2(self._m_sSrcSysmapPath, os.path.join(sPackageRoot, 'boot/System.map-' + sKR))
+         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-'      + sKR))
+         # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
+         os.symlink('linux-' + sKR, os.path.join(sPackageRoot, 'boot/kernel-' + sKR))
+
          self.einfo('Adding modules')
          self.kmake_check_call('INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install')
          if self.with_initramfs():
             self.einfo('Adding initramfs')
-            sDstIrfArchiveFile = os.path.join(sPackageRoot, 'boot/initramfs-{}.cpio'.format(sKR))
+            sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(sKR)
             if self._m_comprIrf:
                sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
-            shutil.copy2(self._m_sSrcIrfArchiveFile, sDstIrfArchiveFile)
+            shutil.copy2(
+               self._m_sSrcIrfArchiveFile, os.path.join(sPackageRoot, 'boot', sDstIrfArchiveFile)
+            )
+            # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
+            os.symlink(
+               sDstIrfArchiveFile, os.path.join(sPackageRoot, 'boot/initramfs-{}.img'.format(sKR))
+            )
 
          # Complete the package creation, which will grab everything that’s in ${D}.
          self.einfo('Creating package')
