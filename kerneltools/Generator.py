@@ -659,11 +659,17 @@ class Generator(object):
             raise GeneratorError()
          if self._m_sIrfSourcePath is True:
             self._m_sIrfSourcePath = os.path.join(self._m_sPRoot, 'usr/src/initramfs')
-         if not os.path.isdir(self._m_sIrfSourcePath):
-            self.ewarn('The selected kernel was configured to support initramfs/initrd,')
-            self.ewarn('but no suitable initramfs source directory was specified or found.')
-            self.ewarn('No initramfs will be created.')
-            self._m_sIrfSourcePath = False
+            if not os.path.isdir(self._m_sIrfSourcePath):
+               self.ewarn('The selected kernel was configured to support initramfs/initrd,')
+               self.ewarn('but no suitable initramfs source directory was specified or found.')
+               self.ewarn('No initramfs will be created.')
+               self._m_sIrfSourcePath = False
+         else:
+            if not os.path.isdir(self._m_sIrfSourcePath):
+               self.eerror('The initramfs path `{}\' is not a directory.'.format(
+                  self._m_sIrfSourcePath
+               ))
+               raise GeneratorError()
 
       if self.with_initramfs():
          # TODO: check that these CONFIG_ match:
