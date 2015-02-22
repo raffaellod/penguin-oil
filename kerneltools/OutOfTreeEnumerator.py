@@ -86,7 +86,9 @@ class OutOfTreeEnumerator(object):
       # List all directories (package categories) in the VDB.
       for sCategory in os.listdir(self._m_sVdbPath):
          sCategoryPath = os.path.join(self._m_sVdbPath, sCategory)
-         if not os.path.isdir(sCategoryPath):
+         # Ignore the sys-kernel category: kernels may contain modules, but they would then be
+         # in-tree modules, not out-of-tree.
+         if sCategory == 'sys-kernel' or not os.path.isdir(sCategoryPath):
             continue
          # List all directories (package names) in the category.
          for sPackage in os.listdir(sCategoryPath):
