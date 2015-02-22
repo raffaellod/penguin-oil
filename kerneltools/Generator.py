@@ -139,9 +139,9 @@ class Generator(object):
       self._m_sIndent = ''
       self._m_comprIrf = None
       self._m_sIrfSourcePath = sIrfSourcePath
-      self._m_sKArch = None
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
+      self._m_dictKMakeEnv = dict(os.environ)
       self._m_tplModulePackages = None
       if sPArch is None:
          self._m_sPArch = self._m_pconfig['ARCH']
@@ -229,9 +229,15 @@ class Generator(object):
             # The initramfs has a build script; invoke it.
             self.einfo('Invoking initramfs custom build script')
             self.eindent()
-            # ARCH, PORTAGE_ARCH and CROSS_COMPILE are already set in os.environ.
-            subprocess.check_call((sIrfBuild, ))
-            self.eoutdent()
+            dictIrfBuildEnv = dict(os.environ)
+            dictIrfBuildEnv['ARCH'         ] = self._m_dictKMakeEnv['ARCH']
+            dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
+            dictIrfBuildEnv['PORTAGE_ARCH' ] = self._m_sPArch
+            try:
+               subprocess.check_call((sIrfBuild, ), env = dictIrfBuildEnv)
+            finally:
+               self.eoutdent()
+            del dictIrfBuildEnv
          else:
             # No build script; just copy every file.
             self.einfo('Adding source files')
@@ -305,7 +311,9 @@ class Generator(object):
 
       self.einfo('Ready to build:')
       self.eindent()
-      self.einfo('\033[1;32mlinux-{}\033[0m ({})'.format(self._m_sKernelRelease, self._m_sKArch))
+      self.einfo('\033[1;32mlinux-{}\033[0m ({})'.format(
+         self._m_sKernelRelease, self._m_dictKMakeEnv['ARCH']
+      ))
       self.einfo('from \033[1;37m{}\033[0m'.format(self._m_sSourcePath))
 
       if self._m_sIrfSourcePath:
@@ -327,7 +335,7 @@ class Generator(object):
          iOldMask = os.umask(0o002)
          os.makedirs(sDistCCDir, exist_ok = True)
          os.umask(iOldMask)
-         os.environ['DISTCC_DIR'] = sDistCCDir
+         self._m_dictKMakeEnv['DISTCC_DIR'] = sDistCCDir
 
       # Only invoke make if .config was changed since last compilation.
       # Note that this check only works due to what we’ll do after invoking kmake (see below, at the
@@ -352,7 +360,13 @@ class Generator(object):
                   '--changed-use', '--onlydeps', '--update', *self._m_tplModulePackages
                )
                # Then (re)build the modules, but only generate their binary packages.
-               self.emerge_check_call('--buildpkgonly', '--usepkg=n', *self._m_tplModulePackages)
+               dictEmergeEnv = dict(os.environ)
+               dictEmergeEnv['KERNEL_DIR'] = self._m_sSourcePath
+               self.emerge_check_call(
+                  '--buildpkgonly', '--usepkg=n', *self._m_tplModulePackages,
+                  dictEnv = dictEmergeEnv
+               )
+               del dictEmergeEnv
 
          self.einfo('Building kernel image and in-tree modules')
          self.kmake_check_call()
@@ -375,11 +389,13 @@ class Generator(object):
 
       print(self._m_sIndent + '[I] ' + s)
 
-   def emerge_check_call(self, *iterArgs):
+   def emerge_check_call(self, *iterArgs, dictEnv = None):
       """Invokes emerge in “quiet” mode with the specified additional command-line arguments.
 
       iterable(str*) iterArgs
          Additional arguments to pass to emerge.
+      dict(str: str) dictEnv
+         Optional environment variable dictionary to use in place of os.environ.
       """
 
       bVerbose = False
@@ -390,7 +406,9 @@ class Generator(object):
             self._m_sCrossCompiler + 'emerge', '--quiet', '--quiet-build', '--quiet-fail=y'
          ]
       listArgs.extend(iterArgs)
-      subprocess.check_call(listArgs, stdout = None if bVerbose else self._m_fileNullOut)
+      subprocess.check_call(
+         listArgs, env = dictEnv, stdout = None if bVerbose else self._m_fileNullOut
+      )
 
    def eoutdent(self):
       """TODO: comment"""
@@ -423,7 +441,8 @@ class Generator(object):
       # Ignore errors; if no source directory can be found, we’ll take care of failing.
       with subprocess.Popen(
          self._m_listKMakeArgs + ['--directory', self._m_sSourcePath, '--quiet', 'kernelversion'],
-         stdout = subprocess.PIPE, stderr = self._m_fileNullOut, universal_newlines = True
+         env = self._m_dictKMakeEnv, stdout = subprocess.PIPE, stderr = self._m_fileNullOut,
+         universal_newlines = True
       ) as procMake:
          sOut = procMake.communicate()[0].rstrip()
          # Expect a single line; if multiple lines are present, they must be errors.
@@ -441,7 +460,7 @@ class Generator(object):
       listArgs = list(self._m_listKMakeArgs)
       listArgs.append('--quiet')
       listArgs.extend(iterArgs)
-      subprocess.check_output(listArgs, stderr = self._m_fileNullOut)
+      subprocess.check_output(listArgs, env = self._m_dictKMakeEnv, stderr = self._m_fileNullOut)
 
    def kmake_check_output(self, sTarget):
       """Runs kmake to build the specified informative target, such as “kernelrelease”.
@@ -454,7 +473,7 @@ class Generator(object):
 
       sOut = subprocess.check_output(
          self._m_listKMakeArgs + ['--quiet', sTarget],
-         stderr = subprocess.STDOUT, universal_newlines = True
+         env = self._m_dictKMakeEnv, stderr = subprocess.STDOUT, universal_newlines = True
       ).rstrip()
       if '\n' in sOut:
          self.eerror('Unexpected output by make {}:'.format(sTarget))
@@ -628,9 +647,7 @@ class Generator(object):
          'ppc64': 'powerpc64',
          'x86'  : 'i386',
       }
-      self._m_sKArch = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
-      os.environ['ARCH'] = self._m_sKArch
-      os.environ['PORTAGE_ARCH'] = self._m_sPArch
+      self._m_dictKMakeEnv['ARCH'] = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
 
       # Ensure we have a valid kernel source directory, and get its version.
       if self._m_sSourcePath:
@@ -672,7 +689,6 @@ class Generator(object):
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
       self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
-      os.environ['KERNEL_DIR'] = self._m_sSourcePath
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
       self.load_kernel_config(self._m_sSrcConfigPath)
@@ -734,8 +750,6 @@ class Generator(object):
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
-      if self._m_sCrossCompiler:
-         os.environ['CROSS_COMPILE'] = self._m_sCrossCompiler
 
    def with_initramfs(self):
       """Returns True if an initramfs can and should be built for the kernel.
