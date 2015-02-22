@@ -160,7 +160,6 @@ class Generator(object):
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
       self._m_sSrcIrfArchiveFile = None
-      self._m_sSrcSysmapPath = None
       self._m_sTmpDir = self._m_pconfig['PORTAGE_TMPDIR']
 
    def __del__(self):
@@ -489,16 +488,13 @@ class Generator(object):
          raise GeneratorError()
       return sOut
 
-   def load_kernel_config(self, sConfigPath):
-      """Loads the specified kernel configuration file (.config), storing the entries defined in it
+   def load_kernel_config(self):
+      """Loads the selected kernel configuration file (.config), storing the entries defined in it
       and verifying that it’s for the correct kernel version.
-
-      str sConfigPath
-         Path to the configuration file.
       """
 
       dictKernelConfig = {}
-      with open(sConfigPath, 'r') as fileConfig:
+      with open(self._m_sSrcConfigPath, 'r') as fileConfig:
          bConfigVersionFound = False
          for iLine, sLine in enumerate(fileConfig, start = 1):
             sLine = sLine.rstrip()
@@ -603,9 +599,12 @@ class Generator(object):
          self.einfo('Adding kernel image')
          sKR = self._m_sKernelRelease
          os.mkdir(os.path.join(sPackageRoot, 'boot'))
-         shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-'     + sKR))
-         shutil.copy2(self._m_sSrcSysmapPath, os.path.join(sPackageRoot, 'boot/System.map-' + sKR))
-         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-'      + sKR))
+         shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-' + sKR))
+         shutil.copy2(
+            os.path.join(self._m_sSourcePath, 'System.map'),
+            os.path.join(sPackageRoot, 'boot/System.map-' + sKR)
+         )
+         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-' + sKR))
          # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
          os.symlink('linux-' + sKR, os.path.join(sPackageRoot, 'boot/kernel-' + sKR))
 
@@ -685,10 +684,9 @@ class Generator(object):
 
       self._m_sSourcePath = os.path.abspath(self._m_sSourcePath)
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
-      self._m_sSrcSysmapPath = os.path.join(self._m_sSourcePath, 'System.map')
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
-      self.load_kernel_config(self._m_sSrcConfigPath)
+      self.load_kernel_config()
       self._m_sKernelRelease = self.kmake_check_output('kernelrelease')
 
       # Get compressor to use for the kernel image from the config file.
