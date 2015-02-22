@@ -514,7 +514,7 @@ class Generator(object):
                   self.eerror('This kernel needs to be configured first. Try:')
                   self.eerror('  make -C \'{}\' menuconfig'.format(self._m_sSourcePath))
                   raise GeneratorError()
-            else:
+            elif not sLine.startswith('#'):
                match = re.match(r'^(?P<name>CONFIG_\S+)+=(?P<value>.*)$', sLine)
                if match:
                   sValue = match.group('value')
@@ -524,7 +524,7 @@ class Generator(object):
                      # Consider modules as missing, since checks for CONFIG_* values in this class
                      # would hardly consider modules as satisfying.
                      continue
-                  elif len(sValue) >= 2 and sValue[0] == '"' and sValue[-1] == '"':
+                  elif len(sValue) >= 2 and sValue.startswith('"') and sValue.endswith('"'):
                      oValue = sValue[1:-1]
                   else:
                      oValue = sValue
