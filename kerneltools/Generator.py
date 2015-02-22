@@ -245,7 +245,7 @@ class Generator(object):
             # Strip the work directory, changing sIrfWorkDir into ‘.’.
             sBaseDir = sBaseDir[cchIrfWorkDir:]
             if sBaseDir:
-               sBaseDir += os.sep
+               sBaseDir += '/'
             for sFileName in listFileNames:
                listIrfContents.append(sBaseDir + sFileName)
          if bDebug:
