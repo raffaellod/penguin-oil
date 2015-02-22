@@ -151,12 +151,10 @@ class Generator(object):
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
       self._m_dictKMakeEnv = dict(os.environ)
+      if not sPArch:
+         sPArch = self._m_pconfig['ARCH']
+      self._m_dictKMakeEnv['ARCH'] = self._smc_dictPArchToKArch.get(sPArch, sPArch)
       self._m_tplModulePackages = None
-      if sPArch is None:
-         self._m_sPArch = self._m_pconfig['ARCH']
-      else:
-         self._m_sPArch = sPArch
-      self._m_dictKMakeEnv['ARCH'] = self._smc_dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
       self._m_sRoot = sRoot
       self._m_sSourcePath = sSourcePath
       self._m_sSrcConfigPath = None
@@ -242,7 +240,7 @@ class Generator(object):
             dictIrfBuildEnv = dict(os.environ)
             dictIrfBuildEnv['ARCH'         ] = self._m_dictKMakeEnv['ARCH']
             dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
-            dictIrfBuildEnv['PORTAGE_ARCH' ] = self._m_sPArch
+            dictIrfBuildEnv['PORTAGE_ARCH' ] = self._m_pconfig['ARCH']
             try:
                subprocess.check_call((sIrfBuild, ), env = dictIrfBuildEnv)
             finally:
