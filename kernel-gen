@@ -18,8 +18,9 @@
 # see <http://www.gnu.org/licenses/>.
 #---------------------------------------------------------------------------------------------------
 
-"""Generates a kernel binary+modules and/or tarball, optionally generating an initramfs from a
-compatible initramfs building system such as tinytium.
+"""Generates a Portage binary package containing a kernel image and related in-tree kernel modules,
+optionally generating an initramfs from a compatible self-contained initramfs-building system such
+as Tinytium.
 """
 
 import sys

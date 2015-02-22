@@ -82,7 +82,7 @@ class Compressor(object):
 # GeneratorError
 
 class GeneratorError(Exception):
-   """Indicates a failure in the generation of a kernel."""
+   """Indicates a failure in the generation of a kernel binary package."""
 
    pass
 
@@ -90,8 +90,9 @@ class GeneratorError(Exception):
 # Generator
 
 class Generator(object):
-   """Generates a kernel binary+modules and/or tarball, optionally generating an initramfs from a
-   compatible self-contained initramfs-building system (such as tinytium).
+   """Generates a Portage binary package containing a kernel image and related in-tree kernel
+   modules, optionally generating an initramfs from a compatible self-contained initramfs-building
+   system such as Tinytium.
    """
 
    # List of supported compressors, in order of preference.
