@@ -123,6 +123,15 @@ class Generator(object):
          echo "KERNEL-GEN: D=${D}"
       }
    '''.replace('\n      ', '\n').rstrip(' ')
+   # Special cases for the conversion from Portage ARCH to Linux ARCH.
+   _smc_dictPArchToKArch = {
+      'amd64': 'x86_64',
+      'arm64': 'aarch64',
+      'm68k' : 'm68',
+      'ppc'  : 'powerpc',
+      'ppc64': 'powerpc64',
+      'x86'  : 'i386',
+   }
 
    def __init__(self, sPArch, sIrfSourcePath, sRoot, sSourcePath):
       """Constructor. TODO: comment"""
@@ -147,6 +156,7 @@ class Generator(object):
          self._m_sPArch = self._m_pconfig['ARCH']
       else:
          self._m_sPArch = sPArch
+      self._m_dictKMakeEnv['ARCH'] = self._smc_dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
       self._m_sRoot = sRoot
       self._m_sSourcePath = sSourcePath
       self._m_sSrcConfigPath = None
@@ -637,17 +647,6 @@ class Generator(object):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
 
       self.einfo('Preparing to build kernel')
-
-      # Determine the Linux ARCH from Portage’s ARCH, considering these special cases.
-      dictPArchToKArch = {
-         'amd64': 'x86_64',
-         'arm64': 'aarch64',
-         'm68k' : 'm68',
-         'ppc'  : 'powerpc',
-         'ppc64': 'powerpc64',
-         'x86'  : 'i386',
-      }
-      self._m_dictKMakeEnv['ARCH'] = dictPArchToKArch.get(self._m_sPArch, self._m_sPArch)
 
       # Ensure we have a valid kernel source directory, and get its version.
       if self._m_sSourcePath:
