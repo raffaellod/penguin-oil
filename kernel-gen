@@ -63,12 +63,13 @@ def main(iterArgs):
    )
    argparser.add_argument(
       '--no-install', dest = 'install', action = 'store_false', default = True,
-      help = 'Build and package the kernel, but don’t install it.'
+      help = 'Build and package the kernel and update out-of-tree (external) modules\' packages ' +
+             '(unless --no-oot-modules), but don’t install anything.'
    )
    argparser.add_argument(
       '--no-oot-modules', dest = 'oot_modules',
       action = 'store_false', default = True,
-      help = 'Don\'t rebuild packages providing out-of-tree (external) modules.'
+      help = 'Don\'t rebuild or install packages providing out-of-tree (external) modules.'
    )
    argparser.add_argument(
       '-o', '--overlay',

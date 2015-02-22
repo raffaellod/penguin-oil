@@ -141,6 +141,7 @@ class Generator(object):
       self._m_sKArch = None
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
+      self._m_tplModulePackages = None
       if sPArch is None:
          self._m_sPArch = self._m_pconfig['ARCH']
       else:
@@ -340,14 +341,17 @@ class Generator(object):
             self.kmake_check_call('modules_prepare')
             self.einfo('Finished building linux-{}'.format(self._m_sKernelRelease))
 
-            self.einfo('Rebuilding out-of-tree kernel modules')
+            self.einfo('Getting a list of out-of-tree kernel modules')
             oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
-            listModulePackages = list(oote.packages())
-            if listModulePackages:
-               subprocess.check_call([
-                  self._m_sCrossCompiler + 'emerge',
-                  '--oneshot', '--quiet', '--quiet-build', '--usepkg=n'
-               ] + listModulePackages, stdout = self._m_fileNullOut)
+            self._m_tplModulePackages = tuple(oote.packages())
+            if self._m_tplModulePackages:
+               self.einfo('Rebuilding out-of-tree kernel modules\' packages')
+               # First make sure that all the modules’ dependencies are installed.
+               self.emerge_check_call(
+                  '--changed-use', '--onlydeps', '--update', *self._m_tplModulePackages
+               )
+               # Then (re)build the modules, but only generate their binary packages.
+               self.emerge_check_call('--buildpkgonly', '--usepkg=n', *self._m_tplModulePackages)
 
          self.einfo('Building kernel image and in-tree modules')
          self.kmake_check_call()
@@ -370,6 +374,23 @@ class Generator(object):
 
       print(self._m_sIndent + '[I] ' + s)
 
+   def emerge_check_call(self, *iterArgs):
+      """Invokes emerge in “quiet” mode with the specified additional command-line arguments.
+
+      iterable(str*) iterArgs
+         Additional arguments to pass to emerge.
+      """
+
+      bVerbose = False
+      if bVerbose:
+         listArgs = [self._m_sCrossCompiler + 'emerge', '--verbose']
+      else:
+         listArgs = [
+            self._m_sCrossCompiler + 'emerge', '--quiet', '--quiet-build', '--quiet-fail=y'
+         ]
+      listArgs.extend(iterArgs)
+      subprocess.check_call(listArgs, stdout = None if bVerbose else self._m_fileNullOut)
+
    def eoutdent(self):
       """TODO: comment"""
 
@@ -384,10 +405,12 @@ class Generator(object):
       """Installs the generated kernel binary package."""
 
       self.einfo('Installing kernel binary package')
-      subprocess.check_call((
-         self._m_sCrossCompiler + 'emerge', '--quiet', '--select', '--usepkgonly=y',
-         '={}/{}-{}'.format(self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion)
-      ), stdout = self._m_fileNullOut)
+      self.emerge_check_call('--select', '--usepkgonly=y', '={}/{}-{}'.format(
+         self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
+      ))
+      if self._m_tplModulePackages:
+         self.einfo('Installing out-of-tree kernel modules\' binary packages')
+         self.emerge_check_call('--oneshot', '--usepkgonly=y', *self._m_tplModulePackages)
 
    def kmake_call_kernelversion(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
