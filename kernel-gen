@@ -94,12 +94,9 @@ def main(iterArgs):
 
    try:
       gen = kerneltools.Generator(
-         sPArch = args.arch,
-         sIrfSourcePath = args.initramfs,
-         sRoot = args.root,
-         sSourcePath = args.source
+         sPArch = args.arch, sIrfSourcePath = args.initramfs, sRoot = args.root
       )
-      gen.prepare()
+      gen.set_kernel_source_path(args.source)
       gen.create_ebuild(args.overlay)
       gen.build_kernel(args.oot_modules)
       gen.package(args.initramfs_debug)

@@ -134,7 +134,7 @@ class Generator(object):
       'x86'  : 'i386',
    }
 
-   def __init__(self, sPArch, sIrfSourcePath, sRoot, sSourcePath):
+   def __init__(self, sPArch, sIrfSourcePath, sRoot):
       """Constructor. TODO: comment"""
 
       if sRoot:
@@ -160,7 +160,7 @@ class Generator(object):
       self._m_tplModulePackages = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sRoot = sRoot
-      self._m_sSourcePath = sSourcePath
+      self._m_sSourcePath = None
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
 
@@ -640,12 +640,17 @@ class Generator(object):
          stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
       )
 
-   def prepare(self):
-      """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
+   def set_kernel_source_path(self, sSourcePath = None):
+      """Assigns a kernel source path, loading and validating the configuration found therein.
+
+      str sSourcePath
+         Path to the kernel source, or None to default to /usr/src/linux.
+      """
 
       self.einfo('Preparing to build kernel')
 
       # Ensure we have a valid kernel source directory, and get its version.
+      self._m_sSourcePath = sSourcePath
       if self._m_sSourcePath:
          sKernelVersion = self.kmake_call_kernelversion()
          if not sKernelVersion:
