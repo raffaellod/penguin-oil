@@ -747,9 +747,10 @@ class Generator(object):
                # Not the same as the kernel image, but make a note of this in case the condition
                # above is never satisfied.
                listEnabledIrfCompressors.append(compr)
-         # If this is still None, pick the first enabled compression method, if any.
-         if not self._m_comprIrf and listEnabledIrfCompressors:
-            self._m_comprIrf = listEnabledIrfCompressors[0]
+         else:
+            if listEnabledIrfCompressors:
+               # Pick the first enabled compression method, if any.
+               self._m_comprIrf = listEnabledIrfCompressors[0]
          self._m_sSrcIrfArchiveFile = os.path.join(self._m_sTmpDir, 'initramfs.cpio')
          if self._m_comprIrf:
             self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
