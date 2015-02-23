@@ -583,13 +583,12 @@ class Generator(object):
       with open(sEbuildFilePath, 'wt') as fileEbuild:
          fileEbuild.write(self._smc_sEbuildTemplate)
 
-      dictEbuildEnv = dict(os.environ)
       try:
          # Have Portage create the package installation image for the ebuild. The ebuild will output
          # the destination path, ${D}, using a pattern specific to kernel-gen.
          sOut = subprocess.check_output(
             ('ebuild', sEbuildFilePath, 'clean', 'manifest', 'install'),
-            env = dictEbuildEnv, stderr = subprocess.STDOUT, universal_newlines = True
+            stderr = subprocess.STDOUT, universal_newlines = True
          )
          match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
          sPackageRoot = match.group('D')
@@ -627,14 +626,14 @@ class Generator(object):
          self.einfo('Creating package')
          subprocess.check_call(
             ('ebuild', sEbuildFilePath, 'package'),
-            env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+            stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          )
       finally:
          self.eoutdent()
          self.einfo('Cleaning up package build temporary directory')
          with subprocess.Popen(
             ('ebuild', sEbuildFilePath, 'clean'),
-            env = dictEbuildEnv, stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+            stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          ) as procClean:
             procClean.communicate()
          os.unlink(sEbuildFilePath)
