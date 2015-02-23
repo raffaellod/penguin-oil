@@ -250,9 +250,10 @@ class Generator(object):
             self.einfo('Invoking initramfs custom build script')
             self.eindent()
             dictIrfBuildEnv = dict(os.environ)
-            dictIrfBuildEnv['ARCH'         ] = self._m_dictKMakeEnv['ARCH']
-            dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
-            dictIrfBuildEnv['PORTAGE_ARCH' ] = self._m_pconfig['ARCH']
+            dictIrfBuildEnv['ARCH'] = self._m_dictKMakeEnv['ARCH']
+            if self._m_sCrossCompiler:
+               dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
+            dictIrfBuildEnv['PORTAGE_ARCH'] = self._m_pconfig['ARCH']
             try:
                subprocess.check_call((sIrfBuild, ), env = dictIrfBuildEnv)
             finally:
@@ -455,13 +456,12 @@ class Generator(object):
          Optional environment variable dictionary to use in place of os.environ.
       """
 
+      listArgs = [(self._m_sCrossCompiler or '') + 'emerge']
       bVerbose = False
       if bVerbose:
-         listArgs = [self._m_sCrossCompiler + 'emerge', '--verbose']
+         listArgs.append('--verbose')
       else:
-         listArgs = [
-            self._m_sCrossCompiler + 'emerge', '--quiet', '--quiet-build', '--quiet-fail=y'
-         ]
+         listArgs.extend(('--quiet', '--quiet-build', '--quiet-fail=y'))
       listArgs.extend(iterArgs)
       subprocess.check_call(
          listArgs, env = dictEnv, stdout = None if bVerbose else self._m_fileNullOut
