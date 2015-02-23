@@ -383,8 +383,6 @@ class Generator(object):
          with the highest priority.
       """
 
-      self.make_package_name()
-
       # Get the specified overlay or the one with the highest priority.
       if sOverlayName is None:
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
@@ -524,6 +522,9 @@ class Generator(object):
    def load_kernel_config(self):
       """Loads the selected kernel configuration file (.config), storing the entries defined in it
       and verifying that it’s for the correct kernel version.
+
+      dict(str: str) return
+         Loaded kernel configuration.
       """
 
       dictKernelConfig = {}
@@ -562,10 +563,14 @@ class Generator(object):
                   else:
                      oValue = sValue
                   dictKernelConfig[match.group('name')] = oValue
-      self._m_dictKernelConfig = dictKernelConfig
+      return dictKernelConfig
 
-   def make_package_name(self):
-      """Generates category, name and version for the binary package that will be generated."""
+   def make_package_name(self, dictKernelConfig):
+      """Generates category, name and version for the binary package that will be generated.
+
+      dict(str: str) dictKernelConfig
+         Kernel configuration.
+      """
 
       self._m_sCategory = 'sys-kernel'
       match = re.match(
@@ -576,7 +581,7 @@ class Generator(object):
          self._m_sPackageName = match.group('extra')
       else:
          self._m_sPackageName = 'vanilla'
-      sLocalVersion = self._m_dictKernelConfig.get('CONFIG_LOCALVERSION')
+      sLocalVersion = dictKernelConfig.get('CONFIG_LOCALVERSION')
       if sLocalVersion:
          self._m_sPackageName += sLocalVersion
       self._m_sPackageName += '-bin'
@@ -691,13 +696,13 @@ class Generator(object):
       self._m_sSrcConfigPath = os.path.join(self._m_sSourcePath, '.config')
 
       # Verify that the kernel has been configured, and get its release string (= version + local).
-      self.load_kernel_config()
+      dictKernelConfig = self.load_kernel_config()
       self._m_sKernelRelease = self.kmake_check_output('kernelrelease')
 
       # Get compressor to use for the kernel image from the config file.
       for compr in self._smc_listCompressors:
          sComprName = compr.config_name()
-         if not sComprName or ('CONFIG_KERNEL_' + sComprName) in self._m_dictKernelConfig:
+         if not sComprName or ('CONFIG_KERNEL_' + sComprName) in dictKernelConfig:
             comprKernel = compr
             break
 
@@ -708,7 +713,7 @@ class Generator(object):
 
       if self._m_sIrfSourcePath:
          # Check for initramfs/initrd support with the config file.
-         if 'CONFIG_BLK_DEV_INITRD' not in self._m_dictKernelConfig:
+         if 'CONFIG_BLK_DEV_INITRD' not in dictKernelConfig:
             self.eerror('The selected kernel was not configured to support initramfs/initrd.')
             raise GeneratorError()
          if self._m_sIrfSourcePath is True:
@@ -733,7 +738,7 @@ class Generator(object):
          listEnabledIrfCompressors = []
          for compr in self._smc_listCompressors:
             sComprName = compr.config_name()
-            if not sComprName or ('CONFIG_RD_' + sComprName) in self._m_dictKernelConfig:
+            if not sComprName or ('CONFIG_RD_' + sComprName) in dictKernelConfig:
                if compr is comprKernel:
                   # We can pick the same compression for kernel image and initramfs.
                   self._m_comprIrf = comprKernel
@@ -746,4 +751,6 @@ class Generator(object):
             self._m_comprIrf = listEnabledIrfCompressors[0]
 
       # Determine if cross-compiling.
-      self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+      self._m_sCrossCompiler = dictKernelConfig.get('CONFIG_CROSS_COMPILE')
+
+      self.make_package_name(dictKernelConfig)
