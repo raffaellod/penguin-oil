@@ -191,122 +191,118 @@ class Generator(object):
       self.eindent()
 
       sPrevDir = os.getcwd()
-      sIrfWorkDir = os.path.join(self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease)
-      shutil.rmtree(sIrfWorkDir, ignore_errors = True)
+      sIrfWorkDir = os.path.join(self._m_sEbuildPkgRoot, 'initramfs-build')
       os.mkdir(sIrfWorkDir)
-      try:
-         os.chdir(sIrfWorkDir)
+      os.chdir(sIrfWorkDir)
 
-         self.einfo('Adding kernel modules')
-         self.kmake_check_call('INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install')
-         # TODO: configuration-driven exclusion of modules from the initramfs.
-         setExcludedModDirs = set([
-            'arch/x86/kvm',
-            'drivers/bluetooth',
-            'drivers/media',
-            'net/bluetooth',
-            'net/netfilter',
-            'sound',
-            'vhost',
-         ])
-         # Equivalent to executing:
-         #    rm -rf sIrfWorkDir/lib*/modules/*/kernel/{${setExcludedModDirs}}
-         for sDir in os.listdir(sIrfWorkDir):
-            if sDir.startswith('lib'):
-               sModulesDir = os.path.join(sIrfWorkDir, sDir, 'modules')
-               for sDir in os.listdir(sModulesDir):
-                  sKernelModulesDir = os.path.join(sModulesDir, sDir, 'kernel')
-                  for sDir in setExcludedModDirs:
-                     sDir = os.path.join(sKernelModulesDir, sDir)
-                     # Recursively remove the excluded directory.
-                     shutil.rmtree(sDir, ignore_errors = True)
+      self.einfo('Adding kernel modules')
+      self.kmake_check_call('INSTALL_MOD_PATH=' + sIrfWorkDir, 'modules_install')
+      # TODO: configuration-driven exclusion of modules from the initramfs.
+      setExcludedModDirs = set([
+         'arch/x86/kvm',
+         'drivers/bluetooth',
+         'drivers/media',
+         'net/bluetooth',
+         'net/netfilter',
+         'sound',
+         'vhost',
+      ])
+      # Equivalent to executing:
+      #    rm -rf sIrfWorkDir/lib*/modules/*/kernel/{${setExcludedModDirs}}
+      for sDir in os.listdir(sIrfWorkDir):
+         if sDir.startswith('lib'):
+            sModulesDir = os.path.join(sIrfWorkDir, sDir, 'modules')
+            for sDir in os.listdir(sModulesDir):
+               sKernelModulesDir = os.path.join(sModulesDir, sDir, 'kernel')
+               for sDir in setExcludedModDirs:
+                  sDir = os.path.join(sKernelModulesDir, sDir)
+                  # Recursively remove the excluded directory.
+                  shutil.rmtree(sDir, ignore_errors = True)
 
-         self.einfo('Adding out-of-tree firmware')
-         # Create the folder beforehand; it not needed, we'll delete it later.
-         sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
-         sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
-         oote = OutOfTreeEnumerator(bFirmware = True, bModules = False)
-         for sSrcExtFirmwarePath in oote.files():
-            sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
-            os.makedirs(os.path.dirname(sDstExtFirmwarePath), exist_ok = True)
-            # Copy the firmware file.
-            shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
+      self.einfo('Adding out-of-tree firmware')
+      # Create the folder beforehand; it not needed, we'll delete it later.
+      sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
+      sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
+      oote = OutOfTreeEnumerator(bFirmware = True, bModules = False)
+      for sSrcExtFirmwarePath in oote.files():
+         sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
+         os.makedirs(os.path.dirname(sDstExtFirmwarePath), exist_ok = True)
+         # Copy the firmware file.
+         shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
 
-         sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
-         if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
-            # The initramfs has a build script; invoke it.
-            self.einfo('Invoking initramfs custom build script')
-            self.eindent()
-            dictIrfBuildEnv = dict(os.environ)
-            dictIrfBuildEnv['ARCH'] = self._m_dictKMakeEnv['ARCH']
-            if self._m_sCrossCompiler:
-               dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
-            dictIrfBuildEnv['PORTAGE_ARCH'] = self._m_pconfig['ARCH']
-            try:
-               subprocess.check_call((sIrfBuild, ), env = dictIrfBuildEnv)
-            finally:
-               self.eoutdent()
-            del dictIrfBuildEnv
-         else:
-            # No build script; just copy every file.
-            self.einfo('Adding source files')
-            for sIrfFile in os.listdir(self._m_sIrfSourcePath):
-               shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
+      sIrfBuild = os.path.join(self._m_sIrfSourcePath, 'build')
+      if os.path.isfile(sIrfBuild) and os.access(sIrfBuild, os.R_OK | os.X_OK):
+         # The initramfs has a build script; invoke it.
+         self.einfo('Invoking initramfs custom build script')
+         self.eindent()
+         dictIrfBuildEnv = dict(os.environ)
+         dictIrfBuildEnv['ARCH'] = self._m_dictKMakeEnv['ARCH']
+         if self._m_sCrossCompiler:
+            dictIrfBuildEnv['CROSS_COMPILE'] = self._m_sCrossCompiler
+         dictIrfBuildEnv['PORTAGE_ARCH'] = self._m_pconfig['ARCH']
+         try:
+            subprocess.check_call((sIrfBuild, ), env = dictIrfBuildEnv)
+         finally:
+            self.eoutdent()
+         del dictIrfBuildEnv
+      else:
+         # No build script; just copy every file.
+         self.einfo('Adding source files')
+         for sIrfFile in os.listdir(self._m_sIrfSourcePath):
+            shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
-         # Build a list with every file name for cpio to package, relative to the current directory
-         # (sIrfWorkDir).
-         self.einfo('Collecting file names')
-         listIrfContents = []
-         cchIrfWorkDir = len(sIrfWorkDir) + 1
-         for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
-            # Strip the work directory, changing sIrfWorkDir into ‘.’.
-            sBaseDir = sBaseDir[cchIrfWorkDir:]
-            if sBaseDir:
-               sBaseDir += '/'
-            for sFileName in listFileNames:
-               listIrfContents.append(sBaseDir + sFileName)
-         if bDebug:
-            sIrfDumpFileName = os.path.join(
-               os.environ.get('TMPDIR', '/tmp'), 'initramfs-' + self._m_sKernelRelease + '.ls'
+      # Build a list with every file name for cpio to package, relative to the current directory
+      # (sIrfWorkDir).
+      self.einfo('Collecting file names')
+      listIrfContents = []
+      cchIrfWorkDir = len(sIrfWorkDir) + 1
+      for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
+         # Strip the work directory, changing sIrfWorkDir into ‘.’.
+         sBaseDir = sBaseDir[cchIrfWorkDir:]
+         if sBaseDir:
+            sBaseDir += '/'
+         for sFileName in listFileNames:
+            listIrfContents.append(sBaseDir + sFileName)
+      if bDebug:
+         sIrfDumpFileName = os.path.join(
+            os.environ.get('TMPDIR', '/tmp'), 'initramfs-' + self._m_sKernelRelease + '.ls'
+         )
+         with open(sIrfDumpFileName, 'w') as fileIrfDump:
+            self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
+            subprocess.check_call(
+               ['ls', '-lR', '--color=always'] + listIrfContents,
+               stdout = fileIrfDump, universal_newlines = True
             )
-            with open(sIrfDumpFileName, 'w') as fileIrfDump:
-               self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
-               subprocess.check_call(
-                  ['ls', '-lR', '--color=always'] + listIrfContents,
-                  stdout = fileIrfDump, universal_newlines = True
-               )
-#         byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
-         del listIrfContents
+#      byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
+      del listIrfContents
 
-         self.einfo('Creating archive')
-         with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
-            # Spawn the compressor or just a cat.
-            if self._m_comprIrf:
-               tplCompressorArgs = self._m_comprIrf.cmd_args()
-            else:
-               tplCompressorArgs = ('cat', )
+      self.einfo('Creating archive')
+      with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
+         # Spawn the compressor or just a cat.
+         if self._m_comprIrf:
+            tplCompressorArgs = self._m_comprIrf.cmd_args()
+         else:
+            tplCompressorArgs = ('cat', )
+         with subprocess.Popen(
+            tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
+         ) as procCompress:
+            # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
+            # it likes to output junk.
             with subprocess.Popen(
-               tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
-            ) as procCompress:
-               # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null
-               # since it likes to output junk.
-               with subprocess.Popen(
-                  ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
-                  stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
-               ) as procCpio:
-#                  # Send cpio the list of files to package.
-#                  procCpio.communicate(byCpioInput)
-                  # Use find . to enumerate the files for cpio to pack.
-                  with subprocess.Popen(
-                     ('find', '.', '-print0'), stdout = procCpio.stdin
-                  ) as procFind:
-                     procFind.communicate()
-                  procCpio.communicate()
-               procCompress.communicate()
-      finally:
-         self.einfo('Cleaning up initramfs')
-         os.chdir(sPrevDir)
-         shutil.rmtree(sIrfWorkDir)
+               ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
+               stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
+            ) as procCpio:
+#               # Send cpio the list of files to package.
+#               procCpio.communicate(byCpioInput)
+               # Use find . to enumerate the files for cpio to pack.
+               with subprocess.Popen(('find', '.', '-print0'), stdout = procCpio.stdin) as procFind:
+                  procFind.communicate()
+               procCpio.communicate()
+            procCompress.communicate()
+
+      # Get out of and remove the working directory, to avoid including it in the binary package.
+      os.chdir(sPrevDir)
+      shutil.rmtree(sIrfWorkDir)
 
       self.eoutdent()
 
