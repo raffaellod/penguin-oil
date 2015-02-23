@@ -100,10 +100,11 @@ def main(iterArgs):
          sSourcePath = args.source
       )
       gen.prepare()
+      gen.create_ebuild(args.overlay)
       gen.build_kernel(args.oot_modules)
       if gen.with_initramfs():
          gen.build_initramfs(args.initramfs_debug)
-      gen.package(args.overlay)
+      gen.package()
       if args.install:
          gen.install()
    except kerneltools.GeneratorError:

@@ -144,6 +144,8 @@ class Generator(object):
          # Set this now to override the null sRoot with Portage’s default root.
          os.environ['ROOT'] = sRoot = self._m_pconfig['ROOT']
       self._m_sCrossCompiler = None
+      self._m_sEbuildFilePath = None
+      self._m_sEbuildPkgRoot = None
       self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
       self._m_comprIrf = None
@@ -165,6 +167,16 @@ class Generator(object):
    def __del__(self):
       """Destructor."""
 
+      if self._m_sEbuildFilePath:
+         self.einfo('Cleaning up package build temporary directory')
+         with subprocess.Popen(
+            ('ebuild', self._m_sEbuildFilePath, 'clean'),
+            stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+         ) as procClean:
+            procClean.communicate()
+         os.unlink(self._m_sEbuildFilePath)
+         # TODO: delete the ebuild directory if now it only contains the manifest file.
+
       if self._m_sSrcIrfArchiveFile:
          self.einfo('Cleaning up temporary files')
          try:
@@ -172,6 +184,7 @@ class Generator(object):
          except OSError:
             # Maybe the file name was initialized, but the file itself hadn’t yet been created.
             pass
+
       self._m_fileNullOut.close()
 
    def build_initramfs(self, bDebug = False):
@@ -381,6 +394,43 @@ class Generator(object):
          # Touch the kernel image now, to avoid always re-running kmake (see large comment above).
          os.utime(self._m_sSrcImagePath, None)
 
+   def create_ebuild(self, sOverlayName = None):
+      """Creates the temporary ebuild from which a binary package will be created later.
+
+      str sOverlayName
+         Name of ther overlay in which the package ebuild will be added; defaults to the overlay
+         with the highest priority.
+      """
+
+      self.make_package_name()
+      # Get the specified overlay or the one with the highest priority.
+      if sOverlayName is None:
+         sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
+      povl = self._m_pconfig.repositories.prepos.get(sOverlayName)
+      if not povl:
+         self.eerror('Unknown overlay: {}'.format(sOverlayName))
+         raise GeneratorError()
+      self.einfo('Creating temporary ebuild \033[1;32m{}/{}-{}::{}\033[0m'.format(
+         self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion, sOverlayName
+      ))
+      # Generate a new ebuild at the expected location in the selected overlay.
+      sEbuildFileDir = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
+      os.makedirs(sEbuildFileDir, exist_ok = True)
+      self._m_sEbuildFilePath = os.path.join(
+         sEbuildFileDir, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
+      )
+      with open(self._m_sEbuildFilePath, 'wt') as fileEbuild:
+         fileEbuild.write(self._smc_sEbuildTemplate)
+
+      # Have Portage create the package installation image for the ebuild. The ebuild will output
+      # the destination path, ${D}, using a pattern specific to kernel-gen.
+      sOut = subprocess.check_output(
+         ('ebuild', self._m_sEbuildFilePath, 'clean', 'manifest', 'install'),
+         stderr = subprocess.STDOUT, universal_newlines = True
+      )
+      match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
+      self._m_sEbuildPkgRoot = match.group('D')
+
    def eerror(self, s):
       """TODO: comment"""
 
@@ -554,93 +604,52 @@ class Generator(object):
       if match.group('rev'):
          self._m_sPackageVersion += match.group('rev')
 
-   def package(self, sOverlayName = None):
+   def package(self):
       """Generates a Portage binary package (.tbz2) containing the kernel image, in-tree modules,
       and optional initramfs.
-
-      str sOverlayName
-         Name of ther overlay in which the package ebuild will be added; defaults to the overlay
-         with the highest priority.
       """
 
-      self.make_package_name()
-      # Get the specified overlay or the one with the highest priority.
-      if sOverlayName is None:
-         sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
-      povl = self._m_pconfig.repositories.prepos.get(sOverlayName)
-      if not povl:
-         self.eerror('Unknown overlay: {}'.format(sOverlayName))
-         raise GeneratorError()
+      # Inject the package contents into ${D}.
 
-      self.einfo('Creating temporary ebuild \033[1;32m{}/{}-{}::{}\033[0m'.format(
-         self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion, sOverlayName
-      ))
-      self.eindent()
-
-      # Generate a new ebuild at the expected location in the selected overlay.
-      sEbuildFilePath = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
-      os.makedirs(sEbuildFilePath, exist_ok = True)
-      sEbuildFilePath = os.path.join(
-         sEbuildFilePath, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
+      self.einfo('Adding kernel image')
+      sKR = self._m_sKernelRelease
+      os.mkdir(os.path.join(self._m_sEbuildPkgRoot, 'boot'))
+      shutil.copy2(
+         self._m_sSrcConfigPath, os.path.join(self._m_sEbuildPkgRoot, 'boot/config-' + sKR)
       )
-      with open(sEbuildFilePath, 'wt') as fileEbuild:
-         fileEbuild.write(self._smc_sEbuildTemplate)
+      shutil.copy2(
+         os.path.join(self._m_sSourcePath, 'System.map'),
+         os.path.join(self._m_sEbuildPkgRoot, 'boot/System.map-' + sKR)
+      )
+      shutil.copy2(
+         self._m_sSrcImagePath,  os.path.join(self._m_sEbuildPkgRoot, 'boot/linux-' + sKR)
+      )
+      # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
+      os.symlink('linux-' + sKR, os.path.join(self._m_sEbuildPkgRoot, 'boot/kernel-' + sKR))
 
-      try:
-         # Have Portage create the package installation image for the ebuild. The ebuild will output
-         # the destination path, ${D}, using a pattern specific to kernel-gen.
-         sOut = subprocess.check_output(
-            ('ebuild', sEbuildFilePath, 'clean', 'manifest', 'install'),
-            stderr = subprocess.STDOUT, universal_newlines = True
-         )
-         match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
-         sPackageRoot = match.group('D')
-
-         # Inject the package contents into ${D}.
-
-         self.einfo('Adding kernel image')
-         sKR = self._m_sKernelRelease
-         os.mkdir(os.path.join(sPackageRoot, 'boot'))
-         shutil.copy2(self._m_sSrcConfigPath, os.path.join(sPackageRoot, 'boot/config-' + sKR))
+      self.einfo('Adding modules')
+      self.kmake_check_call('INSTALL_MOD_PATH=' + self._m_sEbuildPkgRoot, 'modules_install')
+      if self.with_initramfs():
+         self.einfo('Adding initramfs')
+         sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(sKR)
+         if self._m_comprIrf:
+            sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
          shutil.copy2(
-            os.path.join(self._m_sSourcePath, 'System.map'),
-            os.path.join(sPackageRoot, 'boot/System.map-' + sKR)
+            self._m_sSrcIrfArchiveFile,
+            os.path.join(self._m_sEbuildPkgRoot, 'boot', sDstIrfArchiveFile)
          )
-         shutil.copy2(self._m_sSrcImagePath,  os.path.join(sPackageRoot, 'boot/linux-' + sKR))
          # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
-         os.symlink('linux-' + sKR, os.path.join(sPackageRoot, 'boot/kernel-' + sKR))
-
-         self.einfo('Adding modules')
-         self.kmake_check_call('INSTALL_MOD_PATH=' + sPackageRoot, 'modules_install')
-         if self.with_initramfs():
-            self.einfo('Adding initramfs')
-            sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(sKR)
-            if self._m_comprIrf:
-               sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
-            shutil.copy2(
-               self._m_sSrcIrfArchiveFile, os.path.join(sPackageRoot, 'boot', sDstIrfArchiveFile)
-            )
-            # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
-            os.symlink(
-               sDstIrfArchiveFile, os.path.join(sPackageRoot, 'boot/initramfs-{}.img'.format(sKR))
-            )
-
-         # Complete the package creation, which will grab everything that’s in ${D}.
-         self.einfo('Creating package')
-         subprocess.check_call(
-            ('ebuild', sEbuildFilePath, 'package'),
-            stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+         os.symlink(
+            sDstIrfArchiveFile,
+            os.path.join(self._m_sEbuildPkgRoot, 'boot/initramfs-{}.img'.format(sKR))
          )
-      finally:
-         self.eoutdent()
-         self.einfo('Cleaning up package build temporary directory')
-         with subprocess.Popen(
-            ('ebuild', sEbuildFilePath, 'clean'),
-            stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
-         ) as procClean:
-            procClean.communicate()
-         os.unlink(sEbuildFilePath)
-         # TODO: delete the ebuild directory if now it only contains the manifest file.
+
+      # Complete the package creation, which will grab everything that’s in ${D}.
+      self.einfo('Creating package')
+      subprocess.check_call(
+         ('ebuild', self._m_sEbuildFilePath, 'package'),
+         stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
+      )
 
    def prepare(self):
       """Prepares for the execution of the build_kernel() and build_initramfs() methods."""
