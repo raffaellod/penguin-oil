@@ -71,7 +71,7 @@ archive.
 
 For kernel-gen to pick an initramfs and enable the generation of the initramfs
 archive, a symlink to it must be created at /usr/src/initramfs, or the path to
-it must be passed using the --initramfs argument to kernel-gen.
+it must be passed using the --initramfs-source argument to kernel-gen.
 
 When debugging the initramfs’s build program, passing the argument
 --initramfs-debug will generate a dump of the contents of the initramfs just

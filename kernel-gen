@@ -51,15 +51,15 @@ def main(iterArgs):
       help = 'Show this informative message and exit.'
    )
    argparser.add_argument(
-      '-i', '--initramfs', default = True,
-      help = 'Use a specific initramfs source directory. Defaults to `${ROOT}/usr/src/initramfs\'.'
-   )
-   argparser.add_argument(
       '--initramfs-debug', action = 'store_true', default = False,
       help = 'Dump the contents of the generated initramfs before turning it into a cpio archive.'
    )
    argparser.add_argument(
-      '--no-initramfs', dest = 'initramfs', action = 'store_false',
+      '-i', '--initramfs-source', default = True,
+      help = 'Use a specific initramfs source directory. Defaults to `${ROOT}/usr/src/initramfs\'.'
+   )
+   argparser.add_argument(
+      '--no-initramfs', dest = 'initramfs_source', action = 'store_false',
       help = 'Ignore the initramfs directory, even if existent.'
    )
    argparser.add_argument(
@@ -96,7 +96,7 @@ def main(iterArgs):
       gen = kerneltools.Generator(
          sPArch = args.arch, sRoot = args.root
       )
-      gen.set_sources(args.source, args.initramfs)
+      gen.set_sources(args.source, args.initramfs_source)
       gen.create_ebuild(args.overlay)
       gen.build_kernel(args.oot_modules)
       gen.package(args.initramfs_debug)
