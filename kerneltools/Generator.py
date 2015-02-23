@@ -161,7 +161,7 @@ class Generator(object):
       self._m_sSourcePath = sSourcePath
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
-      self._m_sSrcIrfArchiveFile = None
+      self._m_sIrfArchivePath = None
       self._m_sTmpDir = self._m_pconfig['PORTAGE_TMPDIR']
 
    def __del__(self):
@@ -176,14 +176,6 @@ class Generator(object):
             procClean.communicate()
          os.unlink(self._m_sEbuildFilePath)
          # TODO: delete the ebuild directory if now it only contains the manifest file.
-
-      if self._m_sSrcIrfArchiveFile:
-         self.einfo('Cleaning up temporary files')
-         try:
-            os.unlink(self._m_sSrcIrfArchiveFile)
-         except OSError:
-            # Maybe the file name was initialized, but the file itself hadn’t yet been created.
-            pass
 
       self._m_fileNullOut.close()
 
@@ -287,7 +279,7 @@ class Generator(object):
          del listIrfContents
 
          self.einfo('Creating archive')
-         with open(self._m_sSrcIrfArchiveFile, 'wb') as fileIrfArchive:
+         with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
             # Spawn the compressor or just a cat.
             if self._m_comprIrf:
                tplCompressorArgs = self._m_comprIrf.cmd_args()
@@ -400,6 +392,7 @@ class Generator(object):
       """
 
       self.make_package_name()
+
       # Get the specified overlay or the one with the highest priority.
       if sOverlayName is None:
          sOverlayName = self._m_pconfig.repositories.prepos_order[-1]
@@ -635,19 +628,18 @@ class Generator(object):
       self.kmake_check_call('INSTALL_MOD_PATH=' + self._m_sEbuildPkgRoot, 'modules_install')
 
       if self._m_sIrfSourcePath:
-         self.build_initramfs(bIrfDebug)
-         self.einfo('Adding initramfs')
-         sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(self._m_sKernelRelease)
-         if self._m_comprIrf:
-            sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
-         shutil.copy2(
-            self._m_sSrcIrfArchiveFile,
-            os.path.join(self._m_sEbuildPkgRoot, 'boot', sDstIrfArchiveFile)
+         self._m_sIrfArchivePath = os.path.join(
+            self._m_sEbuildPkgRoot, 'boot/initramfs-{}.cpio'.format(self._m_sKernelRelease)
          )
+         if self._m_comprIrf:
+            self._m_sIrfArchivePath += self._m_comprIrf.file_name_ext()
+         self.build_initramfs(bIrfDebug)
          # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
-         os.symlink(sDstIrfArchiveFile, os.path.join(
-            self._m_sEbuildPkgRoot, 'boot/initramfs-{}.img'.format(self._m_sKernelRelease)
-         ))
+         os.symlink(
+            os.path.basename(self._m_sIrfArchivePath),
+            os.path.dirname(self._m_sIrfArchivePath) +
+               '/initramfs-{}.img'.format(self._m_sKernelRelease)
+         )
 
       # Complete the package creation, which will grab everything that’s in ${D}.
       self.einfo('Creating package')
@@ -756,9 +748,6 @@ class Generator(object):
             if listEnabledIrfCompressors:
                # Pick the first enabled compression method, if any.
                self._m_comprIrf = listEnabledIrfCompressors[0]
-         self._m_sSrcIrfArchiveFile = os.path.join(self._m_sTmpDir, 'initramfs.cpio')
-         if self._m_comprIrf:
-            self._m_sSrcIrfArchiveFile += self._m_comprIrf.file_name_ext()
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
