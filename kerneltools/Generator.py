@@ -430,7 +430,9 @@ class Generator(object):
    def install(self):
       """Installs the generated kernel binary package."""
 
-      self.einfo('Installing kernel binary package')
+      self.einfo('Installing kernel binary package \033[1;35m{}/{}-{}\033[0m'.format(
+         self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
+      ))
       self.emerge_check_call('--select', '--usepkgonly=y', '={}/{}-{}'.format(
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
       ))
@@ -570,16 +572,17 @@ class Generator(object):
          self.eerror('Unknown overlay: {}'.format(sOverlayName))
          raise GeneratorError()
 
-      sPackageNameVersion = self._m_sPackageName + '-' + self._m_sPackageVersion
-      self.einfo('Creating binary package \033[1;35m{}/{}::{}\033[0m'.format(
-         self._m_sCategory, sPackageNameVersion, sOverlayName
+      self.einfo('Creating temporary ebuild \033[1;32m{}/{}-{}::{}\033[0m'.format(
+         self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion, sOverlayName
       ))
       self.eindent()
 
       # Generate a new ebuild at the expected location in the selected overlay.
       sEbuildFilePath = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
       os.makedirs(sEbuildFilePath, exist_ok = True)
-      sEbuildFilePath = os.path.join(sEbuildFilePath, sPackageNameVersion + '.ebuild')
+      sEbuildFilePath = os.path.join(
+         sEbuildFilePath, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
+      )
       with open(sEbuildFilePath, 'wt') as fileEbuild:
          fileEbuild.write(self._smc_sEbuildTemplate)
 
