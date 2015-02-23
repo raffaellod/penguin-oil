@@ -146,9 +146,9 @@ class Generator(object):
       self._m_sCrossCompiler = None
       self._m_sEbuildFilePath = None
       self._m_sEbuildPkgRoot = None
-      self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sIndent = ''
       self._m_comprIrf = None
+      self._m_sIrfArchivePath = None
       self._m_sIrfSourcePath = sIrfSourcePath
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
@@ -157,11 +157,11 @@ class Generator(object):
          sPArch = self._m_pconfig['ARCH']
       self._m_dictKMakeEnv['ARCH'] = self._smc_dictPArchToKArch.get(sPArch, sPArch)
       self._m_tplModulePackages = None
+      self._m_fileNullOut = open(os.devnull, 'w')
       self._m_sRoot = sRoot
       self._m_sSourcePath = sSourcePath
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
-      self._m_sIrfArchivePath = None
 
    def __del__(self):
       """Destructor."""
