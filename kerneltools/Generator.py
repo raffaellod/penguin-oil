@@ -265,7 +265,7 @@ class Generator(object):
                listIrfContents.append(sBaseDir + sFileName)
          if bDebug:
             sIrfDumpFileName = os.path.join(
-               self._m_sTmpDir, 'initramfs-' + self._m_sKernelRelease + '.ls'
+               os.environ.get('TMPDIR', '/tmp'), 'initramfs-' + self._m_sKernelRelease + '.ls'
             )
             with open(sIrfDumpFileName, 'w') as fileIrfDump:
                self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
@@ -338,7 +338,7 @@ class Generator(object):
       if 'distcc' in self._m_pconfig.features:
          self.einfo('Distributed C compiler (distcc) enabled')
          self._m_listKMakeArgs.append('CC=distcc')
-         sDistCCDir = os.path.join(self._m_sTmpDir, 'portage/.distcc')
+         sDistCCDir = os.path.join(self._m_pconfig['PORTAGE_TMPDIR'], 'portage/.distcc')
          iOldMask = os.umask(0o002)
          os.makedirs(sDistCCDir, exist_ok = True)
          os.umask(iOldMask)
