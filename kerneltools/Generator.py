@@ -101,6 +101,7 @@ class Generator(object):
       Compressor('LZMA',  '.lzma', ('lzma',  '-9')),
       Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
       Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
+      Compressor(None,    ''     , ('cat',       )),
    ]
    # ebuild template that will be dropped in the selected overlay and made into a binary package.
    _smc_sEbuildTemplate = '''
@@ -278,12 +279,8 @@ class Generator(object):
       self.einfo('Creating archive')
       with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
          # Spawn the compressor or just a cat.
-         if self._m_comprIrf:
-            tplCompressorArgs = self._m_comprIrf.cmd_args()
-         else:
-            tplCompressorArgs = ('cat', )
          with subprocess.Popen(
-            tplCompressorArgs, stdin = subprocess.PIPE, stdout = fileIrfArchive
+            self._m_comprIrf.cmd_args(), stdin = subprocess.PIPE, stdout = fileIrfArchive
          ) as procCompress:
             # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
             # it likes to output junk.
@@ -624,10 +621,10 @@ class Generator(object):
 
       if self._m_sIrfSourcePath:
          self._m_sIrfArchivePath = os.path.join(
-            self._m_sEbuildPkgRoot, 'boot/initramfs-{}.cpio'.format(self._m_sKernelRelease)
+            self._m_sEbuildPkgRoot, 'boot/initramfs-{}.cpio{}'.format(
+               self._m_sKernelRelease, self._m_comprIrf.file_name_ext()
+            )
          )
-         if self._m_comprIrf:
-            self._m_sIrfArchivePath += self._m_comprIrf.file_name_ext()
          self.build_initramfs(bIrfDebug)
          # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
          os.symlink(
@@ -694,11 +691,10 @@ class Generator(object):
 
       # Get compressor to use for the kernel image from the config file.
       for compr in self._smc_listCompressors:
-         if ('CONFIG_KERNEL_' + compr.config_name()) in self._m_dictKernelConfig:
+         sComprName = compr.config_name()
+         if not sComprName or ('CONFIG_KERNEL_' + sComprName) in self._m_dictKernelConfig:
             comprKernel = compr
             break
-      else:
-         comprKernel = None
 
       # Determine the location of the generated kernel image.
       sImagePath = self.kmake_check_output('image_name')
@@ -731,7 +727,8 @@ class Generator(object):
          # Check for an enabled initramfs compression method.
          listEnabledIrfCompressors = []
          for compr in self._smc_listCompressors:
-            if ('CONFIG_RD_' + compr.config_name()) in self._m_dictKernelConfig:
+            sComprName = compr.config_name()
+            if not sComprName or ('CONFIG_RD_' + sComprName) in self._m_dictKernelConfig:
                if compr is comprKernel:
                   # We can pick the same compression for kernel image and initramfs.
                   self._m_comprIrf = comprKernel
@@ -740,9 +737,8 @@ class Generator(object):
                # above is never satisfied.
                listEnabledIrfCompressors.append(compr)
          else:
-            if listEnabledIrfCompressors:
-               # Pick the first enabled compression method, if any.
-               self._m_comprIrf = listEnabledIrfCompressors[0]
+            # Pick the first enabled compression method.
+            self._m_comprIrf = listEnabledIrfCompressors[0]
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
