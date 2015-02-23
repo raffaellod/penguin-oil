@@ -195,10 +195,6 @@ class Generator(object):
          inspection.
       """
 
-      if not self._m_sIrfSourcePath:
-         self.eerror('No initramfs source path specified.')
-         raise GeneratorError()
-
       self.einfo('Generating initramfs')
       self.eindent()
 
@@ -604,34 +600,44 @@ class Generator(object):
       if match.group('rev'):
          self._m_sPackageVersion += match.group('rev')
 
-   def package(self):
+   def package(self, bIrfDebug = False):
       """Generates a Portage binary package (.tbz2) containing the kernel image, in-tree modules,
       and optional initramfs.
+
+      bool bIrfDebug
+         If True, the contents of the generated initramfs will be dumped to a file for later
+         inspection.
       """
 
       # Inject the package contents into ${D}.
 
       self.einfo('Adding kernel image')
-      sKR = self._m_sKernelRelease
       os.mkdir(os.path.join(self._m_sEbuildPkgRoot, 'boot'))
       shutil.copy2(
-         self._m_sSrcConfigPath, os.path.join(self._m_sEbuildPkgRoot, 'boot/config-' + sKR)
+         self._m_sSrcConfigPath,
+         os.path.join(self._m_sEbuildPkgRoot, 'boot/config-' + self._m_sKernelRelease)
       )
       shutil.copy2(
          os.path.join(self._m_sSourcePath, 'System.map'),
-         os.path.join(self._m_sEbuildPkgRoot, 'boot/System.map-' + sKR)
+         os.path.join(self._m_sEbuildPkgRoot, 'boot/System.map-' + self._m_sKernelRelease)
       )
       shutil.copy2(
-         self._m_sSrcImagePath,  os.path.join(self._m_sEbuildPkgRoot, 'boot/linux-' + sKR)
+         self._m_sSrcImagePath,
+         os.path.join(self._m_sEbuildPkgRoot, 'boot/linux-' + self._m_sKernelRelease)
       )
       # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
-      os.symlink('linux-' + sKR, os.path.join(self._m_sEbuildPkgRoot, 'boot/kernel-' + sKR))
+      os.symlink(
+         'linux-' + self._m_sKernelRelease,
+         os.path.join(self._m_sEbuildPkgRoot, 'boot/kernel-' + self._m_sKernelRelease)
+      )
 
       self.einfo('Adding modules')
       self.kmake_check_call('INSTALL_MOD_PATH=' + self._m_sEbuildPkgRoot, 'modules_install')
-      if self.with_initramfs():
+
+      if self._m_sIrfSourcePath:
+         self.build_initramfs(bIrfDebug)
          self.einfo('Adding initramfs')
-         sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(sKR)
+         sDstIrfArchiveFile = 'initramfs-{}.cpio'.format(self._m_sKernelRelease)
          if self._m_comprIrf:
             sDstIrfArchiveFile += self._m_comprIrf.file_name_ext()
          shutil.copy2(
@@ -639,10 +645,9 @@ class Generator(object):
             os.path.join(self._m_sEbuildPkgRoot, 'boot', sDstIrfArchiveFile)
          )
          # Create a symlink for compatibility with GRUB’s /etc/grub.d/10_linux detection script.
-         os.symlink(
-            sDstIrfArchiveFile,
-            os.path.join(self._m_sEbuildPkgRoot, 'boot/initramfs-{}.img'.format(sKR))
-         )
+         os.symlink(sDstIrfArchiveFile, os.path.join(
+            self._m_sEbuildPkgRoot, 'boot/initramfs-{}.img'.format(self._m_sKernelRelease)
+         ))
 
       # Complete the package creation, which will grab everything that’s in ${D}.
       self.einfo('Creating package')
@@ -732,7 +737,7 @@ class Generator(object):
                ))
                raise GeneratorError()
 
-      if self.with_initramfs():
+      if self._m_sIrfSourcePath:
          # TODO: check that these CONFIG_ match:
          #   +DEVTMPFS
 
@@ -757,12 +762,3 @@ class Generator(object):
 
       # Determine if cross-compiling.
       self._m_sCrossCompiler = self._m_dictKernelConfig.get('CONFIG_CROSS_COMPILE')
-
-   def with_initramfs(self):
-      """Returns True if an initramfs can and should be built for the kernel.
-
-      bool return
-         True if build_initramfs() should be called, or False otherwise.
-      """
-
-      return bool(self._m_sIrfSourcePath)

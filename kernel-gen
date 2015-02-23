@@ -102,9 +102,7 @@ def main(iterArgs):
       gen.prepare()
       gen.create_ebuild(args.overlay)
       gen.build_kernel(args.oot_modules)
-      if gen.with_initramfs():
-         gen.build_initramfs(args.initramfs_debug)
-      gen.package()
+      gen.package(args.initramfs_debug)
       if args.install:
          gen.install()
    except kerneltools.GeneratorError:
