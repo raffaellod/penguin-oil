@@ -162,7 +162,6 @@ class Generator(object):
       self._m_sSrcConfigPath = None
       self._m_sSrcImagePath = None
       self._m_sIrfArchivePath = None
-      self._m_sTmpDir = self._m_pconfig['PORTAGE_TMPDIR']
 
    def __del__(self):
       """Destructor."""
