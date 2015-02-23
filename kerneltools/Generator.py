@@ -134,7 +134,7 @@ class Generator(object):
       'x86'  : 'i386',
    }
 
-   def __init__(self, sPArch, sIrfSourcePath, sRoot):
+   def __init__(self, sPArch, sRoot):
       """Constructor. TODO: comment"""
 
       if sRoot:
@@ -150,7 +150,7 @@ class Generator(object):
       self._m_sIndent = ''
       self._m_comprIrf = None
       self._m_sIrfArchivePath = None
-      self._m_sIrfSourcePath = sIrfSourcePath
+      self._m_sIrfSourcePath = None
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
       self._m_dictKMakeEnv = dict(os.environ)
@@ -645,17 +645,20 @@ class Generator(object):
          stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
       )
 
-   def set_kernel_source_path(self, sSourcePath = None):
+   def set_sources(self, sSourcePath = None, sIrfSourcePath = None):
       """Assigns a kernel source path, loading and validating the configuration found therein.
 
       str sSourcePath
          Path to the kernel source, or None to default to /usr/src/linux.
+      str sIrfSourcePath
+         Path to an initramfs source directory, or None to default to /usr/src/initramfs.
       """
 
       self.einfo('Preparing to build kernel')
+      self._m_sSourcePath = sSourcePath
+      self._m_sIrfSourcePath = sIrfSourcePath
 
       # Ensure we have a valid kernel source directory, and get its version.
-      self._m_sSourcePath = sSourcePath
       if self._m_sSourcePath:
          sKernelVersion = self.kmake_call_kernelversion()
          if not sKernelVersion:
