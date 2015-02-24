@@ -745,6 +745,7 @@ class Generator(object):
          if self._m_sIrfSourcePath is True:
             if 'CONFIG_BLK_DEV_INITRD' not in dictKernelConfig:
                self.ewarn('The selected kernel was not configured to support an initramfs/initrd.')
+               self._m_sIrfSourcePath = False
             else:
                self._m_sIrfSourcePath = os.path.join(self._m_sRoot, 'usr/src/initramfs')
                if not os.path.isdir(self._m_sIrfSourcePath):
