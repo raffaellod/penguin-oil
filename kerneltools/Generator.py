@@ -257,50 +257,8 @@ class Generator(object):
          for sIrfFile in os.listdir(self._m_sIrfSourcePath):
             shutil.copytree(os.path.join(self._m_sIrfSourcePath, sIrfFile), sIrfWorkDir)
 
-      # Build a list with every file name for cpio to package, relative to the current directory
-      # (sIrfWorkDir).
-      self.einfo('Collecting file names')
-      listIrfContents = []
-      cchIrfWorkDir = len(sIrfWorkDir) + 1
-      for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
-         # Strip the work directory, changing sIrfWorkDir into ‘.’.
-         sBaseDir = sBaseDir[cchIrfWorkDir:]
-         if sBaseDir:
-            sBaseDir += '/'
-         for sFileName in listFileNames:
-            listIrfContents.append(sBaseDir + sFileName)
-      if bDebug:
-         sIrfDumpFileName = os.path.join(
-            os.environ.get('TMPDIR', '/tmp'), 'initramfs-' + self._m_sKernelRelease + '.ls'
-         )
-         with open(sIrfDumpFileName, 'w') as fileIrfDump:
-            self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
-            subprocess.check_call(
-               ['ls', '-lR', '--color=always'] + listIrfContents,
-               stdout = fileIrfDump, universal_newlines = True
-            )
-#      byCpioInput = b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
-      del listIrfContents
-
-      self.einfo('Creating archive')
-      with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
-         # Spawn the compressor or just a cat.
-         with subprocess.Popen(
-            self._m_comprIrf.cmd_args(), stdin = subprocess.PIPE, stdout = fileIrfArchive
-         ) as procCompress:
-            # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
-            # it likes to output junk.
-            with subprocess.Popen(
-               ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
-               stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
-            ) as procCpio:
-#               # Send cpio the list of files to package.
-#               procCpio.communicate(byCpioInput)
-               # Use find . to enumerate the files for cpio to pack.
-               with subprocess.Popen(('find', '.', '-print0'), stdout = procCpio.stdin) as procFind:
-                  procFind.communicate()
-               procCpio.communicate()
-            procCompress.communicate()
+      byCpioInput = self.list_initramfs_contents(sIrfWorkDir, bDebug)
+      self.create_initramfs_archive(byCpioInput)
 
       # Get out of and remove the working directory, to avoid including it in the binary package.
       os.chdir(sPrevDir)
@@ -417,6 +375,34 @@ class Generator(object):
       match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', sOut, re.MULTILINE)
       self._m_sEbuildPkgRoot = match.group('D')
 
+   def create_initramfs_archive(self, byCpioInput):
+      """Creates a cpio archive containing the contents of the initramfs, named
+      self._m_sIrfArchivePath.
+
+      bytes byCpioInput
+         NUL-delimited list of file paths.
+      """
+
+      self.einfo('Creating archive')
+      with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
+         # Spawn the compressor or just a cat.
+         with subprocess.Popen(
+            self._m_comprIrf.cmd_args(), stdin = subprocess.PIPE, stdout = fileIrfArchive
+         ) as procCompress:
+            # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
+            # it likes to output junk.
+            with subprocess.Popen(
+               ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
+               stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
+            ) as procCpio:
+#               # Send cpio the list of files to package.
+#               procCpio.communicate(byCpioInput)
+               # Use find . to enumerate the files for cpio to pack.
+               with subprocess.Popen(('find', '.', '-print0'), stdout = procCpio.stdin) as procFind:
+                  procFind.communicate()
+               procCpio.communicate()
+            procCompress.communicate()
+
    def eerror(self, s):
       """TODO: comment"""
 
@@ -524,6 +510,41 @@ class Generator(object):
          self.eerror(sOut)
          raise GeneratorError()
       return sOut
+
+   def list_initramfs_contents(self, sIrfWorkDir, bDebug):
+      """Builds a list with every file path that cpio should package, relative to sIrfWorkDir.
+
+      str sIrfWorkDir
+         Temporary directory in which the initramfs image has been built; this is also the current
+         directory.
+      bool bDebug
+         If True, the contents of the generated initramfs will be dumped to a file for later
+         inspection.
+      bytes return
+         NUL-delimited list of file paths.
+      """
+
+      self.einfo('Collecting file names')
+      listIrfContents = []
+      cchIrfWorkDir = len(sIrfWorkDir) + 1
+      for sBaseDir, _, listFileNames in os.walk(sIrfWorkDir):
+         # Strip the work directory, changing sIrfWorkDir into ‘.’.
+         sBaseDir = sBaseDir[cchIrfWorkDir:]
+         if sBaseDir:
+            sBaseDir += '/'
+         for sFileName in listFileNames:
+            listIrfContents.append(sBaseDir + sFileName)
+      if bDebug:
+         sIrfDumpFileName = os.path.join(
+            os.environ.get('TMPDIR', '/tmp'), 'initramfs-' + self._m_sKernelRelease + '.ls'
+         )
+         with open(sIrfDumpFileName, 'w') as fileIrfDump:
+            self.einfo('Dumping contents of generated initramfs to {}'.format(sIrfDumpFileName))
+            subprocess.check_call(
+               ['ls', '-lR', '--color=always'] + listIrfContents,
+               stdout = fileIrfDump, universal_newlines = True
+            )
+#      return b'\0'.join(bytes(sPath, encoding = 'utf-8') for sPath in listIrfContents)
 
    def load_kernel_config(self):
       """Loads the selected kernel configuration file (.config), storing the entries defined in it
