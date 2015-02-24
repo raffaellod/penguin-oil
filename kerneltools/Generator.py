@@ -134,8 +134,14 @@ class Generator(object):
       'x86'  : 'i386',
    }
 
-   def __init__(self, sPArch, sRoot):
-      """Constructor. TODO: comment"""
+   def __init__(self, sRoot = None, sPArch = None):
+      """Constructor.
+
+      str sRoot
+         Portage root directory; defaults to Portage’s ${ROOT}.
+      str sPArch
+         Portage architecture; defaults to Portage’s ${ARCH}.
+      """
 
       if sRoot:
          # Set this now to override Portage’s default root.

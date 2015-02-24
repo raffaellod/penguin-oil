@@ -93,9 +93,7 @@ def main(iterArgs):
    args = argparser.parse_args()
 
    try:
-      gen = kerneltools.Generator(
-         sPArch = args.arch, sRoot = args.root
-      )
+      gen = kerneltools.Generator(args.root, args.arch)
       gen.set_sources(args.source, args.initramfs_source)
       gen.create_ebuild(args.overlay)
       gen.build_kernel(args.oot_modules)
