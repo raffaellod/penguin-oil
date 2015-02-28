@@ -180,8 +180,23 @@ class Generator(object):
             stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
          ) as procClean:
             procClean.communicate()
+
+         self.einfo('Deleting temporary ebuild')
          os.unlink(self._m_sEbuildFilePath)
-         # TODO: delete the ebuild directory if now it only contains the manifest file.
+         # Delete the package directory, since now it should only contain the Manifest file.
+         sPackageDir = os.path.dirname(self._m_sEbuildFilePath)
+         listFiles = os.listdir(sPackageDir)
+         for i, sFilePath in enumerate(listFiles):
+            if sFilePath == 'Manifest':
+               os.unlink(os.path.join(sPackageDir, 'Manifest'))
+               del listFiles[i]
+               break
+         if listFiles:
+            ewarn('Not removing {} unknown files in package directory `{}\''.format(
+               len(listFiles), sPackageDir
+            ))
+         else:
+            os.rmdir(sPackageDir)
 
       self._m_fileNullOut.close()
 
@@ -226,7 +241,7 @@ class Generator(object):
                   shutil.rmtree(sDir, ignore_errors = True)
 
       self.einfo('Adding out-of-tree firmware')
-      # Create the folder beforehand; it not needed, we'll delete it later.
+      # Create the directory beforehand; it not needed, we'll delete it later.
       sSrcFirmwareDir = os.path.join(self._m_sRoot, 'lib/firmware')
       sDstFirmwareDir = os.path.join(sIrfWorkDir, 'lib/firmware')
       oote = OutOfTreeEnumerator(bFirmware = True, bModules = False)
