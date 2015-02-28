@@ -358,10 +358,10 @@ class Generator(object):
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion, sOverlayName
       ))
       # Generate a new ebuild at the expected location in the selected overlay.
-      sEbuildFileDir = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
-      os.makedirs(sEbuildFileDir, exist_ok = True)
+      sPackageDir = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
+      os.makedirs(sPackageDir, exist_ok = True)
       self._m_sEbuildFilePath = os.path.join(
-         sEbuildFileDir, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
+         sPackageDir, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
       )
       with open(self._m_sEbuildFilePath, 'wt') as fileEbuild:
          fileEbuild.write(self._smc_sEbuildTemplate)
