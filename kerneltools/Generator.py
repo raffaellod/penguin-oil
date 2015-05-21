@@ -328,7 +328,6 @@ class Generator(object):
          if bRebuildOutOfTreeModules:
             self.einfo('Preparing to rebuild out-of-tree kernel modules')
             self.kmake_check_call('modules_prepare')
-            self.einfo('Finished building linux-{}'.format(self._m_sKernelRelease))
 
             self.einfo('Getting a list of out-of-tree kernel modules')
             oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
