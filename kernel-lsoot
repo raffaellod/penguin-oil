@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012, 2013, 2014, 2015
-# Raffaello D. Di Napoli
+# Copyright 2012-2015 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
