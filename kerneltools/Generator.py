@@ -618,18 +618,13 @@ class Generator(object):
          r'(?P<ver>(?:\d+\.)*\d+)-?(?P<extra>.*?)?(?P<rev>(?:-r|_p)\d+)?$', self._m_sKernelVersion
       )
       # Build the package name.
-      if match.group('extra'):
-         self._m_sPackageName = match.group('extra')
-      else:
-         self._m_sPackageName = 'vanilla'
+      self._m_sPackageName = match.group('extra') or 'vanilla'
       sLocalVersion = dictKernelConfig.get('CONFIG_LOCALVERSION')
       if sLocalVersion:
          self._m_sPackageName += sLocalVersion
       self._m_sPackageName += '-bin'
       # Build the package name with version.
-      self._m_sPackageVersion = match.group('ver')
-      if match.group('rev'):
-         self._m_sPackageVersion += match.group('rev')
+      self._m_sPackageVersion = match.group('ver') + (match.group('rev') or '')
 
    def package(self, bIrfDebug = False):
       """Generates a Portage binary package (.tbz2) containing the kernel image, in-tree modules,
