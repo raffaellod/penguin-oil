@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2015 Raffaello D. Di Napoli
+# Copyright 2012-2016 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
@@ -28,6 +28,20 @@ import shutil
 import subprocess
 import sys
 from . import OutOfTreeEnumerator
+
+
+def makedirs(sPath):
+   """Implementation of os.makedirs(exists_ok = True) for both Python 2.7 and 3.x.
+
+   str sPath
+      Full path to the directory that should exist.
+   """
+
+   try:
+      os.makedirs(sPath)
+   except OSError:
+      if not os.path.isdir(sPath):
+         raise
 
 ####################################################################################################
 # Compressor
@@ -174,11 +188,12 @@ class Generator(object):
 
       if self._m_sEbuildFilePath:
          self.einfo('Cleaning up package build temporary directory')
-         with subprocess.Popen(
+         procClean = subprocess.Popen(
             ('ebuild', self._m_sEbuildFilePath, 'clean'),
             stdout = self._m_fileNullOut, stderr = subprocess.STDOUT
-         ) as procClean:
-            procClean.communicate()
+         )
+         procClean.communicate()
+         procClean = None
 
          self.einfo('Deleting temporary ebuild')
          os.unlink(self._m_sEbuildFilePath)
@@ -246,7 +261,7 @@ class Generator(object):
       oote = OutOfTreeEnumerator(bFirmware = True, bModules = False)
       for sSrcExtFirmwarePath in oote.files():
          sDstExtFirmwarePath = os.path.join(sDstFirmwareDir, sSrcExtFirmwarePath)
-         os.makedirs(os.path.dirname(sDstExtFirmwarePath), exist_ok = True)
+         makedirs(os.path.dirname(sDstExtFirmwarePath))
          # Copy the firmware file.
          shutil.copy2(os.path.join(sSrcFirmwareDir, sSrcExtFirmwarePath), sDstExtFirmwarePath)
 
@@ -312,7 +327,7 @@ class Generator(object):
          self._m_listKMakeArgs.append('CC=distcc')
          sDistCCDir = os.path.join(self._m_pconfig['PORTAGE_TMPDIR'], 'portage/.distcc')
          iOldMask = os.umask(0o002)
-         os.makedirs(sDistCCDir, exist_ok = True)
+         makedirs(sDistCCDir)
          os.umask(iOldMask)
          self._m_dictKMakeEnv['DISTCC_DIR'] = sDistCCDir
 
@@ -334,15 +349,14 @@ class Generator(object):
             if self._m_tplModulePackages:
                self.einfo('Rebuilding out-of-tree kernel modules\' packages')
                # First make sure that all the modules’ dependencies are installed.
-               self.emerge_check_call(
+               self.emerge_check_call(None,
                   '--changed-use', '--onlydeps', '--update', *self._m_tplModulePackages
                )
                # Then (re)build the modules, but only generate their binary packages.
                dictEmergeEnv = dict(os.environ)
                dictEmergeEnv['KERNEL_DIR'] = self._m_sSourcePath
-               self.emerge_check_call(
-                  '--buildpkgonly', '--usepkg=n', *self._m_tplModulePackages,
-                  dictEnv = dictEmergeEnv
+               self.emerge_check_call(dictEmergeEnv,
+                  '--buildpkgonly', '--usepkg=n', *self._m_tplModulePackages
                )
                del dictEmergeEnv
 
@@ -372,7 +386,7 @@ class Generator(object):
       ))
       # Generate a new ebuild at the expected location in the selected overlay.
       sPackageDir = os.path.join(povl.location, self._m_sCategory, self._m_sPackageName)
-      os.makedirs(sPackageDir, exist_ok = True)
+      makedirs(sPackageDir)
       self._m_sEbuildFilePath = os.path.join(
          sPackageDir, '{}-{}.ebuild'.format(self._m_sPackageName, self._m_sPackageVersion)
       )
@@ -399,22 +413,23 @@ class Generator(object):
       self.einfo('Creating archive')
       with open(self._m_sIrfArchivePath, 'wb') as fileIrfArchive:
          # Spawn the compressor or just a cat.
-         with subprocess.Popen(
+         procCompress = subprocess.Popen(
             self._m_comprIrf.cmd_args(), stdin = subprocess.PIPE, stdout = fileIrfArchive
-         ) as procCompress:
-            # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
-            # it likes to output junk.
-            with subprocess.Popen(
-               ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
-               stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
-            ) as procCpio:
-#               # Send cpio the list of files to package.
-#               procCpio.communicate(byCpioInput)
-               # Use find . to enumerate the files for cpio to pack.
-               with subprocess.Popen(('find', '.', '-print0'), stdout = procCpio.stdin) as procFind:
-                  procFind.communicate()
-               procCpio.communicate()
-            procCompress.communicate()
+         )
+         # Make cpio write to the compressor’s input, and redirect its stderr to /dev/null since
+         # it likes to output junk.
+         procCpio = subprocess.Popen(
+            ('cpio', '--create', '--format=newc', '--null', '--owner=0:0'),
+            stdin = subprocess.PIPE, stdout = procCompress.stdin, stderr = self._m_fileNullOut
+         )
+#         # Send cpio the list of files to package.
+#         procCpio.communicate(byCpioInput)
+         # Use find . to enumerate the files for cpio to pack.
+         procFind = subprocess.Popen(('find', '.', '-print0'), stdout = procCpio.stdin)
+
+         procFind.communicate()
+         procCpio.communicate()
+         procCompress.communicate()
 
    def eerror(self, s):
       """TODO: comment"""
@@ -431,13 +446,14 @@ class Generator(object):
 
       print(self._m_sIndent + '[I] ' + s)
 
-   def emerge_check_call(self, *iterArgs, dictEnv = None):
+   def emerge_check_call(self, dictEnv, *iterArgs):
       """Invokes emerge in “quiet” mode with the specified additional command-line arguments.
 
+      dict(str: str) dictEnv
+         Environment variable dictionary to use in place of os.environ; if None, os.environ will be
+         used.
       iterable(str*) iterArgs
          Additional arguments to pass to emerge.
-      dict(str: str) dictEnv
-         Optional environment variable dictionary to use in place of os.environ.
       """
 
       listArgs = [(self._m_sCrossCompiler or '') + 'emerge']
@@ -467,12 +483,12 @@ class Generator(object):
       self.einfo('Installing kernel binary package \033[1;35m{}/{}-{}\033[0m'.format(
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
       ))
-      self.emerge_check_call('--select', '--usepkgonly=y', '={}/{}-{}'.format(
+      self.emerge_check_call(None, '--select', '--usepkgonly=y', '={}/{}-{}'.format(
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
       ))
       if self._m_tplModulePackages:
          self.einfo('Installing out-of-tree kernel modules\' binary packages')
-         self.emerge_check_call('--oneshot', '--usepkgonly=y', *self._m_tplModulePackages)
+         self.emerge_check_call(None, '--oneshot', '--usepkgonly=y', *self._m_tplModulePackages)
 
    def kmake_call_kernelversion(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
@@ -482,16 +498,17 @@ class Generator(object):
       """
 
       # Ignore errors; if no source directory can be found, we’ll take care of failing.
-      with subprocess.Popen(
+      procMake = subprocess.Popen(
          self._m_listKMakeArgs + ['--directory', self._m_sSourcePath, '--quiet', 'kernelversion'],
          env = self._m_dictKMakeEnv, stdout = subprocess.PIPE, stderr = self._m_fileNullOut,
          universal_newlines = True
-      ) as procMake:
-         sOut = procMake.communicate()[0].rstrip()
-         # Expect a single line; if multiple lines are present, they must be errors.
-         if procMake.returncode == 0 and '\n' not in sOut:
-            return sOut
-      return None
+      )
+      sOut = procMake.communicate()[0].rstrip()
+      # Expect a single line; if multiple lines are present, they must be errors.
+      if procMake.returncode == 0 and '\n' not in sOut:
+         return sOut
+      else:
+         return None
 
    def kmake_check_call(self, *iterArgs):
       """Invokes kmake with the specified additional command-line arguments.
