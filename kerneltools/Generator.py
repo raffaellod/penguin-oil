@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2016 Raffaello D. Di Napoli
+# Copyright 2012-2017 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
@@ -159,6 +159,7 @@ class Generator(object):
       if sRoot:
          # Set this now to override Portage’s default root.
          os.environ['ROOT'] = sRoot
+      self._m_sCategory = None # Set by make_package_name()
       self._m_pconfig = portage_config.config()
       if not sRoot:
          # Set this now to override the null sRoot with Portage’s default root.
@@ -170,14 +171,18 @@ class Generator(object):
       self._m_comprIrf = None
       self._m_sIrfArchivePath = None
       self._m_sIrfSourcePath = None
+      self._m_sKernelRelease = None # Set by set_sources()
+      self._m_sKernelVersion = None # Set by set_sources()
       self._m_listKMakeArgs = ['make']
       self._m_listKMakeArgs.extend(shlex.split(self._m_pconfig['MAKEOPTS']))
       self._m_dictKMakeEnv = dict(os.environ)
       if not sPArch:
          sPArch = self._m_pconfig['ARCH']
       self._m_dictKMakeEnv['ARCH'] = self._smc_dictPArchToKArch.get(sPArch, sPArch)
-      self._m_tplModulePackages = None
+      self._m_tplModulePackages = None # Set by build_kernel()
       self._m_fileNullOut = open(os.devnull, 'w')
+      self._m_sPackageName = None # Set by make_package_name()
+      self._m_sPackageVersion = None # Set by make_package_name()
       self._m_sRoot = sRoot
       self._m_sSourcePath = None
       self._m_sSrcConfigPath = None
