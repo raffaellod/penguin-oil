@@ -304,7 +304,7 @@ class Generator(object):
       """Builds the kernel image and modules.
 
       bool bRebuildOutOfTreeModules
-         If True, packages that install out-of-tree modules will be rebuilt in order to ensure
+         If True, packages that provide out-of-tree modules will be rebuilt in order to ensure
          binary compatibility with the kernel being built.
       """
 
@@ -482,8 +482,12 @@ class Generator(object):
 
       print(self._m_sIndent + '[W] ' + s)
 
-   def install(self):
-      """Installs the generated kernel binary package."""
+   def install(self, bIncludeOutOfTreeModules = True):
+      """Installs the generated kernel binary package.
+
+      bool bIncludeOutOfTreeModules
+         If True, also install packages that provide out-of-tree modules.
+      """
 
       self.einfo('Installing kernel binary package \033[1;35m{}/{}-{}\033[0m'.format(
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
@@ -491,9 +495,14 @@ class Generator(object):
       self.emerge_check_call(None, '--select', '--usepkgonly=y', '={}/{}-{}'.format(
          self._m_sCategory, self._m_sPackageName, self._m_sPackageVersion
       ))
-      if self._m_tplModulePackages:
-         self.einfo('Installing out-of-tree kernel modules\' binary packages')
-         self.emerge_check_call(None, '--oneshot', '--usepkgonly=y', *self._m_tplModulePackages)
+      if bIncludeOutOfTreeModules:
+         if self._m_tplModulePackages is None:
+            # build_kernel() hasn’t been called, so we need to scan for out-of-tree modules now.
+            oote = OutOfTreeEnumerator(bFirmware = False, bModules = True)
+            self._m_tplModulePackages = tuple(oote.packages())
+         if self._m_tplModulePackages:
+            self.einfo('Installing out-of-tree kernel modules\' binary packages')
+            self.emerge_check_call(None, '--oneshot', '--usepkgonly=y', *self._m_tplModulePackages)
 
    def kmake_call_kernelversion(self):
       """Retrieves the kernel version for the source directory specified in the constructor.
@@ -711,7 +720,7 @@ class Generator(object):
          Path to an initramfs source directory, or None to default to /usr/src/initramfs.
       """
 
-      self.einfo('Preparing to build kernel')
+      self.einfo('Gathering kernel information')
       self._m_sSourcePath = sSourcePath
       self._m_sIrfSourcePath = sIrfSourcePath
 
