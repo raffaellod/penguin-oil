@@ -121,7 +121,7 @@ class Generator(object):
       EAPI=5
 
       SLOT="${PVR}"
-      DESCRIPTION="Linux kernel image and modules"
+      DESCRIPTION="Linux kernel image and in-tree modules"
       HOMEPAGE="http://www.kernel.org"
       LICENSE="GPL-2"
 
