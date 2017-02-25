@@ -1,33 +1,37 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2015 Raffaello D. Di Napoli
+# Copyright 2012-2015, 2017 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
-# kernel-tools is free software: you can redistribute it and/or modify it under the terms of the GNU
-# General Public License as published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
+# kernel-tools is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
 #
-# kernel-tools is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
+# kernel-tools is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
 #
-# You should have received a copy of the GNU General Public License along with kernel-tools. If not,
-# see <http://www.gnu.org/licenses/>.
-#---------------------------------------------------------------------------------------------------
+# You should have received a copy of the GNU General Public License along with
+# kernel-tools. If not, see <http://www.gnu.org/licenses/>.
+#-----------------------------------------------------------------------------
 
-"""Lists external firmware and/or modules for Linux along with the packages that installed them."""
+"""Lists external firmware and/or modules for Linux along with the packages
+that installed them.
+"""
 
 import sys
 
-####################################################################################################
+##############################################################################
 # Globals
 
-def main(iterArgs):
+def main(args):
    """Implementation of __main__.
 
-   iterable(str*) iterArgs
+   iterable(str*) args
       Command-line arguments.
    int return
       Command return status.
@@ -37,45 +41,47 @@ def main(iterArgs):
    import kerneltools
 
    # Parse the command line.
-   argparser = argparse.ArgumentParser(add_help = False)
+   argparser = argparse.ArgumentParser(add_help=False)
    argparser.add_argument(
-      '-f', '--files', action = 'store_true', default = False,
-      help = 'Show matching files; default action.'
+      '-f', '--files', action='store_true', default=False,
+      help='Show matching files; default action.'
    )
    argparser.add_argument(
-      '-w', '--firmware', action = 'store_true', default = False,
-      help = 'List external firmware installed by non-kernel packages.'
+      '-w', '--firmware', action='store_true', default=False,
+      help='List external firmware installed by non-kernel packages.'
    )
    argparser.add_argument(
-      '--help', action = 'help',
-      help = 'Show this informative message and exit.'
+      '--help', action='help',
+      help='Show this informative message and exit.'
    )
    argparser.add_argument(
-      '-m', '--modules', action = 'store_true', default = False,
-      help = 'List modules installed by non-kernel packages.'
+      '-m', '--modules', action='store_true', default=False,
+      help='List modules installed by non-kernel packages.'
    )
    argparser.add_argument(
-      '-p', '--packages', action = 'store_true', default = False,
-      help = 'Change -m and/or -w to only show the containing packages, overriding -f if not ' +
-             'specified. If combined with -f, show packages on the same line as the files they ' +
-             'contain.'
+      '-p', '--packages', action='store_true', default=False,
+      help='Change -m and/or -w to only show the containing packages, ' +
+           'overriding -f if not specified. If combined with -f, show ' +
+           'packages on the same line as the files they contain.'
    )
    args = argparser.parse_args()
 
-   oote = kerneltools.OutOfTreeEnumerator(bFirmware = args.firmware, bModules = args.modules)
+   oote = kerneltools.OutOfTreeEnumerator(
+      firmware=args.firmware, modules=args.modules
+   )
    if args.packages:
       if args.files:
-         for sPackage, listFiles in oote.packages_and_files():
+         for package, files in oote.packages_and_files():
             # Output the package and its files.
-            sys.stdout.write(sPackage + ' ' + ' '.join(listFiles) + '\n')
+            sys.stdout.write(package + ' ' + ' '.join(files) + '\n')
       else:
-         for sPackage, listFiles in oote.packages_and_files():
+         for package, files in oote.packages_and_files():
             # Output packages only.
-            sys.stdout.write(sPackage + '\n')
+            sys.stdout.write(package + '\n')
    else:
-      for sFilePath in oote.files():
+      for file_path in oote.files():
          # Output files only, one per line.
-         sys.stdout.write(sFilePath + '\n')
+         sys.stdout.write(file_path + '\n')
    return 0
 
 if __name__ == '__main__':

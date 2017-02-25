@@ -20,12 +20,12 @@ kernel-lsoot
 2.1. Using kernel-gen
 ---------------------
 
-Prior to running kernel-gen, a kernel source code folder must be obtained (e.g.
-emerge sys-kernel/gentoo-sources) and configured (e.g. make nconfig).
+Prior to running kernel-gen, a kernel source code folder must be obtained
+(e.g. emerge sys-kernel/gentoo-sources) and configured (e.g. make nconfig).
 Once that’s done, kernel-gen can be directed to the correct folder by either
 creating a symlink to it at /usr/src/linux (as managed by USE=symlink), or by
-passing a --source argument, or by invoking kernel-gen directly from the desired
-folder.
+passing a --source argument, or by invoking kernel-gen directly from the
+desired folder.
 
 
 2.1.1. Building the kernel
@@ -34,12 +34,13 @@ folder.
 kernel-gen will build the selected kernel using as much of the Portage’s
 configuration as possible (e.g. distcc settings, make flags).
 
-Before running make, kernel-gen will inspect the kernel configuration (.config)
-to make sure that no settings will result in the kernel being unable to use the
-initramfs, if one is to be built (see § 2.1.2. Building an initramfs).
+Before running make, kernel-gen will inspect the kernel configuration
+(.config) to make sure that no settings will result in the kernel being unable
+to use the initramfs, if one is to be built (see § 2.1.2. Building an
+initramfs).
 
-After the kernel image has been generated, kernel-gen will rebuild all external
-modules to make them compatible with the just-built image, unless
+After the kernel image has been generated, kernel-gen will rebuild all
+external modules to make them compatible with the just-built image, unless
 --no-oot-modules is specified.
 
 
@@ -105,8 +106,8 @@ package available for manual installation, for example using emerge:
 
 
 
---------------------------------------------------------------------------------
-Copyright 2012-2015 Raffaello D. Di Napoli
+------------------------------------------------------------------------------
+Copyright 2012-2015, 2017 Raffaello D. Di Napoli
 
 This file is part of kernel-tools.
 
@@ -115,9 +116,9 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-kernel-tools is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE. See the GNU General Public License for more details.
+kernel-tools is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
 kernel-tools. If not, see <http://www.gnu.org/licenses/>.
