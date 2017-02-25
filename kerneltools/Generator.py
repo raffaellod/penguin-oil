@@ -76,14 +76,23 @@ class Compressor(object):
 
       return self._cmd_args
 
-   def config_name(self):
-      """Returns the name of the compressor as per Linux’s .config file.
+   def enabled_in_config(self, kernel_config, prefix):
+      """Checks if the compressor is enabled, with the given prefix, in the
+      specified kernel configuration.
 
-      str return
-         Compressor name.
+      dict(str: str) kernel_config
+         Kernel configuration map.
+      str prefix
+         Configuration entry prefix.
+      bool return
+         True if the compressor is enabled, or False otherwise.
       """
 
-      return self._config_name
+      if self._config_name:
+         return prefix + self._config_name in kernel_config
+      else:
+         # Nothing to check; it’s always enabled.
+         return True
 
    def file_name_ext(self):
       """Returns the default file name extension for files compressed by this
@@ -868,10 +877,9 @@ class Generator(object):
       kernel_config = self.load_kernel_config()
       self._kernel_release = self.kmake_check_output('kernelrelease')
 
-      # Get compressor to use for the kernel image from the config file.
+      # Get a compressor to use for the kernel image from the config file.
       for compr in self._compressors:
-         conf_name = compr.config_name()
-         if not conf_name or ('CONFIG_KERNEL_' + conf_name) in kernel_config:
+         if compr.enabled_in_config(kernel_config, 'CONFIG_KERNEL_'):
             kernel_compressor = compr
             break
 
@@ -924,8 +932,7 @@ class Generator(object):
          # Check for an enabled initramfs compression method.
          enabled_irf_compressors = []
          for compr in self._compressors:
-            conf_name = compr.config_name()
-            if not conf_name or ('CONFIG_RD_' + conf_name) in kernel_config:
+            if compr.enabled_in_config(kernel_config, 'CONFIG_RD_'):
                if compr is kernel_compressor:
                   # We can pick the same compression for kernel image and
                   # initramfs.
