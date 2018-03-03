@@ -1,6 +1,6 @@
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2017 Raffaello D. Di Napoli
+# Copyright 2012-2018 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
@@ -617,8 +617,11 @@ class Generator(object):
          Output of kmake.
       """
 
+      all_args = list(self._kmake_args)
+      all_args.append('--quiet')
+      all_args.append(target)
       ret = subprocess.check_output(
-         self._kmake_args + ['--quiet', target], env=self._kmake_env,
+         all_args, env=self._kmake_env,
          stderr=subprocess.STDOUT, universal_newlines=True
       ).rstrip()
       if '\n' in ret:
