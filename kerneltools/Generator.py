@@ -604,7 +604,7 @@ class Generator(object):
       all_args.append('--quiet')
       all_args.extend(args)
       subprocess.check_output(
-         all_args, env=self._kmake_env, stderr=self._dev_null
+         all_args, env=self._kmake_env
       )
 
    def kmake_check_output(self, target):
