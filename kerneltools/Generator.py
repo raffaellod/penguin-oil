@@ -1,6 +1,6 @@
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2018 Raffaello D. Di Napoli
+# Copyright 2012-2018, 2020 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
@@ -450,10 +450,10 @@ class Generator(object):
       # Have Portage create the package installation image for the ebuild. The
       # ebuild will output the destination path, ${D}, using a pattern
       # specific to kernel-gen.
-      out = subprocess.check_output(
-         ('ebuild', self._ebuild_file_path, 'clean', 'manifest', 'install'),
-         stderr=subprocess.STDOUT, universal_newlines=True
-      )
+      out = self.ebuild_check_call(
+         ('clean', 'manifest', 'install'),
+         stdout=subprocess.PIPE, universal_newlines=True
+      )[0]
       match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', out, re.MULTILINE)
       self._ebuild_pkg_root = match.group('D')
 
@@ -489,6 +489,25 @@ class Generator(object):
          find_proc.communicate()
          cpio_proc.communicate()
          compress_proc.communicate()
+
+   def ebuild_check_call(self, args, **kwargs):
+      """Invokes ebuild ensuring that its output is displayed before any
+      exceptions due to its exit code are thrown.
+
+      iterable(str*) args
+         Additional arguments to pass to ebuild; the ebuild file path is
+         already passed in.
+      dict(str: object) **kwargs
+         Forwarded to subprocess.Popen().
+      """
+
+      all_args = ['ebuild', self._ebuild_file_path]
+      all_args.extend(args)
+      ebuild_proc = subprocess.Popen(all_args, **kwargs)
+      ret = ebuild_proc.communicate()
+      if ebuild_proc.returncode != 0:
+         raise subprocess.CalledProcessError(ebuild_proc.returncode, all_args)
+      return ret
 
    def eerror(self, s):
       """TODO: comment"""
@@ -804,10 +823,7 @@ class Generator(object):
       # Complete the package creation, which will grab everything that’s in
       # ${D}.
       self.einfo('Creating package')
-      subprocess.check_call(
-         ('ebuild', self._ebuild_file_path, 'package'),
-         stdout=self._dev_null, stderr=subprocess.STDOUT
-      )
+      self.ebuild_check_call(('package', ), stdout=self._dev_null)
 
    def set_sources(self, source_path = None, irf_source_path = None):
       """Assigns a kernel source path, loading and validating the
