@@ -359,19 +359,6 @@ class Generator(object):
          )
       self.eoutdent()
 
-      # Use distcc, if enabled.
-      # TODO: also add HOSTCC.
-      if 'distcc' in self._portage_config.features:
-         self.einfo('Distributed C compiler (distcc) enabled')
-         self._kmake_args.append('CC=distcc')
-         distcc_dir = os.path.join(
-            self._portage_config['PORTAGE_TMPDIR'], 'portage/.distcc'
-         )
-         old_umask = os.umask(0o002)
-         makedirs(distcc_dir)
-         os.umask(old_umask)
-         self._kmake_env['DISTCC_DIR'] = distcc_dir
-
       # Only invoke make if .config was changed since last compilation.
       # Note that this check only works due to what we’ll do after invoking
       # kmake (see below, at the end of the if block), because kmake won’t
