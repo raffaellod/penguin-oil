@@ -122,11 +122,13 @@ class Generator(object):
 
    # List of supported compressors, in order of preference.
    _compressors = [
-      Compressor('LZO',   '.lzo' , ('lzop',  '-9')),
-      Compressor('LZMA',  '.lzma', ('lzma',  '-9')),
+      Compressor('LZ4',   '.lz4' , ('lz4', '--fast=16')),
+      Compressor('LZO',   '.lzo' , ('lzop', '-9')),
+      Compressor('ZSTD',  '.zst' , ('zstd', '-19')),
+      Compressor('LZMA',  '.lzma', ('lzma', '-9')),
       Compressor('BZIP2', '.bz2' , ('bzip2', '-9')),
-      Compressor('GZIP',  '.gz'  , ('gzip',  '-9')),
-      Compressor(None,    ''     , ('cat',       )),
+      Compressor('GZIP',  '.gz'  , ('gzip', '-9')),
+      Compressor(None,    ''     , ('cat', )),
    ]
    # ebuild template that will be dropped in the selected overlay and made
    # into a binary package.
