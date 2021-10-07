@@ -1,6 +1,6 @@
 # -*- coding: utf-8; mode: python; tab-width: 3; indent-tabs-mode: nil -*-
 #
-# Copyright 2012-2018, 2020 Raffaello D. Di Napoli
+# Copyright 2012-2018, 2020-2021 Raffaello D. Di Napoli
 #
 # This file is part of kernel-tools.
 #
@@ -133,7 +133,7 @@ class Generator(object):
    # ebuild template that will be dropped in the selected overlay and made
    # into a binary package.
    _ebuild_template = '''
-      EAPI=5
+      EAPI=7
 
       SLOT="${PVR}"
       DESCRIPTION="Linux kernel image and in-tree modules"
