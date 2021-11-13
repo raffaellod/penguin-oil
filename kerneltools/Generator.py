@@ -588,10 +588,11 @@ class Generator(object):
       # failing.
       make_proc = subprocess.Popen(
          self._kmake_args + [
-            '--directory', self._source_path, '--quiet', 'kernelversion'
+            '--directory', self._source_path, '--quiet',
+            'prepare', 'kernelversion'
          ],
-         env=self._kmake_env, stdout=subprocess.PIPE, stderr=self._dev_null,
-         universal_newlines=True
+         env=self._kmake_env, stdout=subprocess.PIPE,
+         stderr=subprocess.STDOUT, universal_newlines=True
       )
       ret = make_proc.communicate()[0].rstrip()
       # Expect a single line; if multiple lines are present, they must be
