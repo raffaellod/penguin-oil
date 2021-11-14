@@ -439,10 +439,7 @@ class Generator(object):
       # Have Portage create the package installation image for the ebuild. The
       # ebuild will output the destination path, ${D}, using a pattern
       # specific to kernel-gen.
-      out = self.ebuild_check_call(
-         ('clean', 'manifest', 'install'),
-         stdout=subprocess.PIPE, universal_newlines=True
-      )[0]
+      out = self.ebuild_check_call(('clean', 'manifest', 'install'))[0]
       match = re.search(r'^KERNEL-GEN: D=(?P<D>.*)$', out, re.MULTILINE)
       self._ebuild_pkg_root = match.group('D')
 
@@ -492,9 +489,14 @@ class Generator(object):
 
       all_args = ['ebuild', self._ebuild_file_path]
       all_args.extend(args)
-      ebuild_proc = subprocess.Popen(all_args, **kwargs)
+      ebuild_proc = subprocess.Popen(
+         all_args, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+         universal_newlines=True
+      )
       ret = ebuild_proc.communicate()
       if ebuild_proc.returncode != 0:
+         print(ret[0])
+         print(ret[1])
          raise subprocess.CalledProcessError(ebuild_proc.returncode, all_args)
       return ret
 
@@ -813,7 +815,7 @@ class Generator(object):
       # Complete the package creation, which will grab everything that’s in
       # ${D}.
       self.einfo('Creating package')
-      self.ebuild_check_call(('package', ), stdout=self._dev_null)
+      self.ebuild_check_call(('package', ))
 
    def set_sources(self, source_path = None, irf_source_path = None):
       """Assigns a kernel source path, loading and validating the
