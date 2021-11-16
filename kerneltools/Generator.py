@@ -593,16 +593,18 @@ class Generator(object):
             '--directory', self._source_path, '--quiet',
             'prepare', 'kernelversion'
          ],
-         env=self._kmake_env, stdout=subprocess.PIPE,
-         stderr=subprocess.STDOUT, universal_newlines=True
+         env=self._kmake_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+         universal_newlines=True
       )
-      ret = make_proc.communicate()[0].rstrip()
-      # Expect a single line; if multiple lines are present, they must be
-      # errors.
-      if make_proc.returncode == 0 and '\n' not in ret:
-         return ret
-      else:
+      ret = make_proc.communicate()
+      # Expect the last line to resemble a version number (M.m and longer).
+      last_line = ret[0].rstrip().split('\n')[-1]
+      if make_proc.returncode != 0 or not re.match('^\d+\.\d+', last_line):
+         # Presumably there’s something meaningful in stdout or stderr.
+         print(ret[0])
+         print(ret[1])
          return None
+      return last_line
 
    def kmake_check_call(self, *args):
       """Invokes kmake with the specified additional command-line arguments.
