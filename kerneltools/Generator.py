@@ -120,6 +120,13 @@ class Generator(object):
    compatible self-contained initramfs-building system such as Tinytium.
    """
 
+   # Mappings from chost machine to kernel arch.
+   _chost_machine_to_kernel_arch = {
+      'aarch64': 'arm64',
+      'i486'   : 'i386',
+      'i586'   : 'i386',
+      'i686'   : 'i386',
+   }
    # List of supported compressors, in order of preference.
    _compressors = [
       Compressor('LZ4',   '.lz4' , ('lz4', '--fast=16')),
@@ -152,34 +159,39 @@ class Generator(object):
          echo "KERNEL-GEN: D=${D}"
       }
    '''.replace('\n      ', '\n').rstrip(' ')
-   # Special cases for the conversion from Portage ARCH to Linux ARCH.
-   _portage_arch_to_kernel_arch = {
-      'amd64': 'x86_64',
-      'arm64': 'aarch64',
-      'm68k' : 'm68',
-      'ppc'  : 'powerpc',
-      'ppc64': 'powerpc64',
-      'x86'  : 'i386',
-   }
 
-   def __init__(self, root = None, portage_arch = None):
+   def __init__(self, root=None, chost=None):
       """Constructor.
 
       str root
          Portage root directory; defaults to Portage’s ${ROOT}.
-      str portage_arch
-         Portage architecture; defaults to Portage’s ${ARCH}.
+      str chost
+         System tuple for which to build the kernel and package; defaults to
+         Portage’s ${CHOST}.
       """
 
       if root:
          # Set this now to override Portage’s default root.
          os.environ['ROOT'] = root
-      self._category = None # Set by make_package_name()
       self._portage_config = portage_config.config()
+      if chost:
+         self._chost = chost
+         self._cross_compile = chost != self._portage_config['CHOST']
+      else:
+         self._chost = self._portage_config['CHOST']
+         self._cross_compile = False
       if not root:
-         # Set this now to override the null root with Portage’s default root.
-         os.environ['ROOT'] = root = self._portage_config['ROOT']
-      self._cross_compiler_prefix = None
+         # Now we can override the null root.
+         if self._cross_compile:
+            # TODO: should probably not hard-code /usr.
+            root = '/usr/' + self._chost
+         else:
+            # Use Portage’s default root.
+            root = self._portage_config['ROOT']
+         # Make sure children will see the same thing.
+         os.environ['ROOT'] = root
+
+      self._category = None # Set by make_package_name()
       self._dev_null = open(os.devnull, 'w')
       self._ebuild_file_path = None
       self._ebuild_pkg_root = None
@@ -191,11 +203,12 @@ class Generator(object):
       self._kernel_version = None # Set by set_sources()
       self._kmake_args = ['make']
       self._kmake_args.extend(shlex.split(self._portage_config['MAKEOPTS']))
+      if self._cross_compile:
+         self._kmake_args.append('CONFIG_CROSS_COMPILE="{}-"'.format(chost))
       self._kmake_env = dict(os.environ)
-      if not portage_arch:
-         portage_arch = self._portage_config['ARCH']
-      self._kmake_env['ARCH'] = self._portage_arch_to_kernel_arch.get(
-         portage_arch, portage_arch
+      chost_machine = self._chost.split('-')[0]
+      self._kmake_env['ARCH'] = self._chost_machine_to_kernel_arch.get(
+         chost_machine, chost_machine
       )
       self._module_packages = None # Set by build_kernel()
       self._package_name = None # Set by make_package_name()
@@ -305,8 +318,8 @@ class Generator(object):
          self.eindent()
          irf_build_env = dict(os.environ)
          irf_build_env['ARCH'] = self._kmake_env['ARCH']
-         if self._cross_compiler_prefix:
-            irf_build_env['CROSS_COMPILE'] = self._cross_compiler_prefix
+         if self._cross_compile:
+            irf_build_env['CROSS_COMPILE'] = self._chost + '-'
          irf_build_env['PORTAGE_ARCH'] = self._portage_config['ARCH']
          try:
             subprocess.check_call((irf_build_path, ), env = irf_build_env)
@@ -352,10 +365,11 @@ class Generator(object):
          self.einfo('with initramfs from \033[1;37m{}\033[0m'.format(
             self._irf_source_path
          ))
-      if self._cross_compiler_prefix:
+      if self._cross_compile:
          self.einfo(
-            'cross-compiled with \033[1;37m{}\033[0m toolchain'
-            .format(self._cross_compiler_prefix)
+            'cross-compiled with \033[1;37m{}\033[0m toolchain'.format(
+               self._chost
+            )
          )
       self.eoutdent()
 
@@ -369,7 +383,7 @@ class Generator(object):
          os.path.getmtime(self._src_config_path) > \
          os.path.getmtime(self._src_image_path) \
       :
-         if rebuild_out_of_tree_modules:
+         if rebuild_out_of_tree_modules and not self._cross_compile:
             self.einfo('Preparing to rebuild out-of-tree kernel modules')
             self.kmake_check_call('modules_prepare')
 
@@ -476,6 +490,9 @@ class Generator(object):
          cpio_proc.communicate()
          compress_proc.communicate()
 
+   def cross_compile(self):
+      return self._cross_compile
+
    def ebuild_check_call(self, args, **kwargs):
       """Invokes ebuild ensuring that its output is displayed before any
       exceptions due to its exit code are thrown.
@@ -487,7 +504,17 @@ class Generator(object):
          Forwarded to subprocess.Popen().
       """
 
-      all_args = ['ebuild', self._ebuild_file_path]
+      all_args = []
+      if self._cross_compile:
+         # sys-devel/crossdev installs a ${CHOST}-emerge wrapper that can be
+         # directed to run anything other than emerge; here we use that.
+         all_args.append(self._chost + '-emerge')
+         env = dict(os.environ)
+         env['CROSS_CMD'] = 'ebuild'
+         kwargs['env'] = env
+      else:
+         all_args.append('ebuild')
+      all_args.append(self._ebuild_file_path)
       all_args.extend(args)
       ebuild_proc = subprocess.Popen(
          all_args, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -526,7 +553,11 @@ class Generator(object):
          Additional arguments to pass to emerge.
       """
 
-      all_args = [(self._cross_compiler_prefix or '') + 'emerge']
+      all_args = []
+      if self._cross_compile:
+         all_args.append(self._chost + '-emerge')
+      else:
+         all_args.append('emerge')
       verbose = False
       if verbose:
          all_args.append('--verbose')
@@ -897,6 +928,10 @@ class Generator(object):
 
       # Determine the location of the generated kernel image.
       image_path = self.kmake_check_output('image_name')
+      if '/' not in image_path:
+         image_path = os.path.join(
+            'arch', self._kmake_env['ARCH'], 'boot', image_path
+         )
       self._src_image_path = os.path.join(self._source_path, image_path)
       del image_path
 
@@ -956,8 +991,5 @@ class Generator(object):
          else:
             # Pick the first enabled compression method.
             self._irf_compressor = enabled_irf_compressors[0]
-
-      # Determine if cross-compiling.
-      self._cross_compiler_prefix = kernel_config.get('CONFIG_CROSS_COMPILE')
 
       self.make_package_name(kernel_config)

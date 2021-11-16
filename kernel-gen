@@ -44,9 +44,9 @@ def main(args):
 
    argparser = argparse.ArgumentParser(add_help=False)
    argparser.add_argument(
-      '-a', '--arch', metavar='ARCH',
-      help='Build a kernel for the specified ARCHitecture. Defaults to ' +
-           'Portage\'s ARCH variable.'
+      '-h', '--chost', metavar='CHOST',
+      help='Build a kernel using the toolchain for the specified chost. ' +
+           'Defaults to Portage\'s CHOST variable.'
    )
    argparser.add_argument(
       '--help', action='help',
@@ -74,7 +74,7 @@ def main(args):
       '--no-install', dest='install', action='store_false', default=True,
       help='Build and package the kernel and update out-of-tree (external) ' +
            'modules\' packages (unless --no-oot-modules), but don’t ' +
-           'install anything.'
+           'install anything. Enabled by default when cross-compiling.'
    )
    argparser.add_argument(
       '--no-oot-modules', dest='oot_modules',
@@ -104,14 +104,17 @@ def main(args):
    args = argparser.parse_args()
 
    try:
-      gen = kerneltools.Generator(args.root, args.arch)
+      gen = kerneltools.Generator(args.root, args.chost)
       gen.set_sources(args.source, args.initramfs_source)
       if not args.install_only:
          gen.create_ebuild(args.overlay)
          gen.build_kernel(args.oot_modules)
          gen.package(args.initramfs_debug)
       if args.install or args.install_only:
-         gen.install(args.oot_modules)
+         if gen.cross_compile():
+            print('Skipping install step because we’re cross-compiling')
+         else:
+            gen.install(args.oot_modules)
    except kerneltools.GeneratorError:
       # kerneltools.Generator already displayed error information, so just
       # return.
