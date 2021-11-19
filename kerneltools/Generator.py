@@ -158,6 +158,26 @@ class Generator(object):
       src_install() {
          echo "KERNEL-GEN: D=${D}"
       }
+
+      pkg_preinst() {
+         # Test if /boot supports symlinks.
+         local symlink="${ROOT}/boot/.__emerge_symlink_test__"
+         if ln -s target "${symlink}" 2>/dev/null; then
+            # All good; only need to clean up after the test.
+            rm "${symlink}"
+         else
+            einfo "/boot does not support symlinks; replacing meaningful file names"
+            einfo "with dull ones as expected by grub."
+            local target
+            for symlink in "${D}/boot/kernel-"* "${D}/boot/initramfs-"*.cpio*; do
+               if [ -L "${symlink}" ]; then
+                  target=$(readlink "${symlink}")
+                  rm "${symlink}"
+                  mv "${D}/boot/${target}" "${symlink}"
+               fi
+            done
+         fi
+      }
    '''.replace('\n      ', '\n').rstrip(' ')
 
    def __init__(self, root=None, chost=None):
