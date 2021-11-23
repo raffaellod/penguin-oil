@@ -223,13 +223,13 @@ class Generator(object):
       self._kernel_version = None # Set by set_sources()
       self._kmake_args = ['make']
       self._kmake_args.extend(shlex.split(self._portage_config['MAKEOPTS']))
-      if self._cross_compile:
-         self._kmake_args.append('CONFIG_CROSS_COMPILE="{}-"'.format(chost))
       self._kmake_env = dict(os.environ)
       chost_machine = self._chost.split('-')[0]
       self._kmake_env['ARCH'] = self._chost_machine_to_kernel_arch.get(
          chost_machine, chost_machine
       )
+      if self._cross_compile:
+         self._kmake_env['CROSS_COMPILE'] = self._chost + '-'
       self._module_packages = None # Set by build_kernel()
       self._package_name = None # Set by make_package_name()
       self._package_version = None # Set by make_package_name()
