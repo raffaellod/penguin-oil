@@ -219,6 +219,7 @@ class Generator(object):
       self._irf_compressor = None
       self._irf_archive_path = None
       self._irf_source_path = None
+      self._kernel_needs_dtb = None # Set by set_sources()
       self._kernel_release = None # Set by set_sources()
       self._kernel_version = None # Set by set_sources()
       self._kmake_args = ['make']
@@ -845,6 +846,13 @@ class Generator(object):
          self._ebuild_pkg_root, 'boot/kernel-' + self._kernel_release
       ))
 
+      if self._kernel_needs_dtb:
+         self.einfo('Adding DTBs')
+         self.kmake_check_call(
+            'INSTALL_PATH=' + os.path.join(self._ebuild_pkg_root, 'boot'),
+            'dtbs_install'
+         )
+
       self.einfo('Adding modules')
       self.kmake_check_call(
          'INSTALL_MOD_PATH=' + self._ebuild_pkg_root, 'modules_install'
@@ -939,6 +947,9 @@ class Generator(object):
       # (= version + local).
       kernel_config = self.load_kernel_config()
       self._kernel_release = self.kmake_check_output('kernelrelease')
+
+      # Track this for later.
+      self._kernel_needs_dtb = 'CONFIG_OF_EARLY_FLATTREE' in kernel_config
 
       # Get a compressor to use for the kernel image from the config file.
       for compr in self._compressors:
