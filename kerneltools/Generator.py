@@ -212,6 +212,7 @@ class Generator(object):
          os.environ['ROOT'] = root
 
       self._category = None # Set by make_package_name()
+      self._compiler_needs_plugins = None # Set by set_sources()
       self._dev_null = open(os.devnull, 'w')
       self._ebuild_file_path = None
       self._ebuild_pkg_root = None
@@ -393,6 +394,22 @@ class Generator(object):
             )
          )
       self.eoutdent()
+
+      # Use distcc, if enabled.
+      # TODO: also add HOSTCC.
+      if 'distcc' in self._portage_config.features:
+         if self._compiler_needs_plugins:
+            self.ewarn('Cannot enable Distributed C compiler (distcc) due to compiler plug-ins requested via .config')
+         else:
+            self.einfo('Distributed C compiler (distcc) enabled')
+            self._kmake_args.append('CC=distcc')
+            distcc_dir = os.path.join(
+               self._portage_config['PORTAGE_TMPDIR'], 'portage/.distcc'
+            )
+            old_umask = os.umask(0o002)
+            makedirs(distcc_dir)
+            os.umask(old_umask)
+            self._kmake_env['DISTCC_DIR'] = distcc_dir
 
       # Only invoke make if .config was changed since last compilation.
       # Note that this check only works due to what we’ll do after invoking
@@ -948,7 +965,8 @@ class Generator(object):
       kernel_config = self.load_kernel_config()
       self._kernel_release = self.kmake_check_output('kernelrelease')
 
-      # Track this for later.
+      # Track these for later.
+      self._compiler_needs_plugins = 'CONFIG_GCC_PLUGINS' in kernel_config
       self._kernel_needs_dtb = 'CONFIG_OF_EARLY_FLATTREE' in kernel_config
 
       # Get a compressor to use for the kernel image from the config file.
