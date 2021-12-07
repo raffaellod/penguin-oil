@@ -353,7 +353,8 @@ class Generator(object):
          self.einfo('Adding source files')
          for irf_file in os.listdir(self._irf_source_path):
             shutil.copytree(
-               os.path.join(self._irf_source_path, irf_file), irf_work_path
+               os.path.join(self._irf_source_path, irf_file),
+               os.path.join(irf_work_path, irf_file)
             )
 
       cpio_input_bytes = self.list_initramfs_contents(irf_work_path, debug)
