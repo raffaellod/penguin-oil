@@ -316,7 +316,7 @@ class Generator(object):
                   shutil.rmtree(dir, ignore_errors=True)
 
       self.einfo('Adding out-of-tree firmware')
-      # Create the directory beforehand; it not needed, we'll delete it later.
+      # Create the directory beforehand; if not needed, we'll delete it later.
       src_firmware_path = os.path.join(self._root, 'lib/firmware')
       dst_firmware_path = os.path.join(irf_work_path, 'lib/firmware')
       oote = OutOfTreeEnumerator(firmware=True, modules=False)
@@ -352,10 +352,10 @@ class Generator(object):
          # No build script; just copy every file.
          self.einfo('Adding source files')
          for irf_file in os.listdir(self._irf_source_path):
-            shutil.copytree(
-               os.path.join(self._irf_source_path, irf_file),
-               os.path.join(irf_work_path, irf_file)
-            )
+            self.einfo('  Copying {}'.format(irf_file))
+            subprocess.check_call((
+               'cp', '-ax', os.path.join(self._irf_source_path, irf_file), irf_work_path
+            ))
 
       cpio_input_bytes = self.list_initramfs_contents(irf_work_path, debug)
       self.create_initramfs_archive(cpio_input_bytes)
