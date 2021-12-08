@@ -169,7 +169,7 @@ class Generator(object):
             einfo "/boot does not support symlinks; replacing meaningful file names"
             einfo "with dull ones as expected by grub."
             local target
-            for symlink in "${D}/boot/kernel-"* "${D}/boot/initramfs-"*.cpio*; do
+            for symlink in "${D}/boot/kernel-"* "${D}/boot/initramfs-"*.img; do
                if [ -L "${symlink}" ]; then
                   target=$(readlink "${symlink}")
                   rm "${symlink}"
