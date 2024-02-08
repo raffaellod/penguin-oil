@@ -1,7 +1,9 @@
 ﻿1. Introduction
 ---------------
 
-kernel-tools is a small set of programs designed for Gentoo Linux, comprising:
+Penguin Oil is a set of program tools designed to make Linux kernel
+configuration, deployment and maintenance smoother, currently only compatible
+with Gentoo Linux.
 
 kernel-gen
    Builds a kernel source directory, generating a Portage binary package
