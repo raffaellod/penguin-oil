@@ -1,0 +1,261 @@
+#!/bin/sh -eu
+# -*- coding: utf-8; mode: sh; tab-width: 3; indent-tabs-mode: nil -*-
+#
+# Copyright 2021-2024 Raffaello D. Di Napoli <rafdev@dinapo.li>
+# Distributed under the terms of the GNU General Public License v3
+
+if [ -t 1 ]; then
+   esc() {
+      printf '\033[%s' "${1}"
+   }
+else
+   esc() {
+      :
+   }
+fi
+default_configs="
+   /proc/config
+   /boot/config-$(uname -r)
+   /usr/src/linux/.config
+"
+
+# Shows program usage, optionally with an error message about incorrect usage.
+#
+# --invalid: optional; next argument is the invalid argument received by the
+#    caller.
+# --missing: optional; next argument is the name of the missing positional
+#    argument.
+# ${2}: optional; see --invalid and --missing.
+# return: 1 to cause exit if --invalid or --missing was provided, or 0
+#    otherwise.
+help() {
+   test ${#} -le 2
+
+   {
+      case "${1:-}" in
+      ('')
+         ;;
+      (--invalid)
+         echo "Invalid argument: ${2}"
+         echo
+         ;;
+      (--missing)
+         echo "Missing argument ${3} to option ${2}"
+         echo
+         ;;
+      esac
+      cat <<EOF
+Usage: ${0##*/} [-a] [-k PATH]
+
+Scans installed ebuilds for required Linux kernel config options, then compares
+the set of options against the config of the running kernel (or specific
+config), showing any requirements that are not met.
+
+Options:
+-a, --all               Show all config options required by every installed
+                        package, including those currently satisfied.
+-k PATH, --config PATH  Use this specific kernel config file instead of using a
+                        default path. Defaults to the first available among:
+$(for f in ${default_configs}; do
+   echo "                          ${f}"
+done)
+EOF
+   } >&2
+   # test will cause exit if non-zero.
+   test "${1+set}" != set
+}
+
+parse_argv() {
+   configs="${default_configs}"
+   show_all=0
+   while [ ${#} -gt 0 ]; do
+      case "${1}" in
+      (-a|--all)
+         show_all=1
+         shift
+         ;;
+      (-h|--help)
+         help
+         exit 0
+         ;;
+      (-k|--config)
+         [ ${#} -ge 2 ] || help --missing "${1}" PATH
+         configs="${2}"
+         shift 2
+         ;;
+      (*)
+         help --invalid "${1}"
+         ;;
+      esac
+   done
+}
+
+main() {
+   local config_charset='_0-9A-Z' tty
+   if [ -t 1 ]; then tty=1; else tty=0; fi
+
+   find "$(portageq vdb_path)" -name \*.ebuild |
+   awk \
+      -vconfigs_str="${configs}" \
+      -vshow_all=${show_all} \
+      -vtty=${tty} \
+   '
+      BEGIN {
+         split(configs_str, configs_arr)
+         split("", kconfigs)
+         split("", kcreqs)
+         max_config_w =  6
+         max_pkg_w    = 19
+         max_req_w    = 15
+         max_satisf_w =  9
+         max_msg_w    =  0
+
+         for (i in configs_arr) {
+            config_file = configs_arr[i]
+            config = ""
+            if ((getline < config_file) >= 0) {
+               # This (ostensibly config) file exists; process it.
+               print "Loading Linux config file " config_file
+               do {
+                  if (sub(/^CONFIG_/, "") && /^['"${config_charset}"']+=[ym"]/) {
+                     value = $0
+                     sub(/=.*$/, "")
+                     sub(/^[^=]+=/, "", value)
+                     kconfigs[$0] = value
+                  }
+               } while ((getline < config_file) > 0)
+               close(config_file)
+               break
+            }
+         }
+
+         print "Searching for ebuilds"
+      }
+
+      {
+         ebuild = $0
+         ++ebuilds_count
+         while ((getline < ebuild) > 0) {
+            if (/^[ \t]*ERROR_['"${config_charset}"']+\+?=/) {
+               # Found an error message.
+               sub(/^[ \t]*ERROR_(KERNEL_)?/, "")
+               equal = index($0, "=")
+               append = (substr($0, equal - 1, 1) == "+")
+               config = substr($0, 1, equal - (append ? 2 : 1))
+               # Use echo to render the string, quotes and all.
+               echo_msg = "echo " substr($0, equal + 1)
+               echo_msg | getline msg
+               close(echo_msg)
+               # Replace the config with just “it” for conciseness. Works
+               # susprisingly well in most cases!
+               gsub("^(CONFIG_)?" config " ", append ? "it " : "It ", msg)
+               gsub(" (CONFIG_)?" config " ", " it ", msg)
+               # Now figure out which kcreqs entry it belongs to. For simplicity,
+               # assume error messages are always defined after CONFIG_CHECK.
+               # Also, some ebuilds have multiple error messages for the same
+               # config, depending on conditions in if blocks. Rather than try to
+               # evaulate the if conditions, just assume an error message relates
+               # to the last matching kcreqs element we added, so iterate
+               # backwards to find it.
+               i = length(kcreqs)
+               while (i-- > 0) {
+                  if (kcreqs[i]["config"] == config && kcreqs[i]["pkg"] == pkg) {
+                     if (!kcreqs[i]["satisfied"] || show_all) {
+                        if (append) {
+                           msg = kcreqs[i]["msg"] msg
+                        }
+                        if (length(msg) > max_msg_w) {
+                           max_msg_w = length(msg)
+                        }
+                        kcreqs[i]["msg"] = msg
+                     }
+                     break
+                  }
+               }
+            } else if (sub(/^.*CONFIG_CHECK\+?=['\''"]/, "")) {
+               in_config_check = 1
+               pkg = ebuild
+               # Strip ebuild file name.
+               sub(/\/[^\/]+$/, "", pkg)
+               # Grab category/package.
+               match(pkg, /[^\/]+\/[^\/]+$/)
+               pkg = substr(pkg, RSTART)
+               # Strip version.
+               sub(/-[0-9][^\/]*$/, "", pkg)
+            }
+            if (in_config_check) {
+               in_config_check = (sub(/['\''"][ \t]*$/, "") == 0)
+               for (ifield = 1; ifield <= NF; ++ifield) {
+                  config = $ifield
+                  optional = (sub(/~/, "", config) == 1)
+                  on = (sub(/!/, "", config) == 0)
+                  if (config ~ /[^'"${config_charset}"']/) {
+                     # Could be CONFIG_CHECK="${CONFIG_CHECK} OTHER_CONFIG", for
+                     # example.
+                     continue
+                  }
+                  satisfied = (length(kconfigs) > 0 && on == (config in kconfigs))
+                  if (!satisfied || show_all) {
+                     if (length(config) > max_config_w) {
+                        max_config_w = length(config)
+                     }
+                     if (length(pkg) > max_pkg_w) {
+                        max_pkg_w = length(pkg)
+                     }
+                     i = length(kcreqs)
+                     kcreqs[i]["config"   ] = config
+                     kcreqs[i]["pkg"      ] = pkg
+                     kcreqs[i]["optional" ] = optional
+                     kcreqs[i]["on"       ] = on
+                     kcreqs[i]["satisfied"] = satisfied
+                     kcreqs[i]["msg"      ] = ""
+                  }
+               }
+            }
+         }
+         close(ebuild)
+      }
+
+      END {
+         printf "Processed %d ebuilds\n\n", 0 + ebuilds_count
+         printf "%-*s %-*s %-*s %-*s %-*s\n" \
+            , max_config_w, "Config"              \
+            , max_pkg_w   , "Required by package" \
+            , max_req_w   , "Requirement"         \
+            , max_satisf_w, "Satisfied"           \
+            , max_msg_w   , "Error message"
+         s = sprintf("%0*d %0*d %0*d %0*d %0*d" \
+            , max_config_w, 0 \
+            , max_pkg_w   , 0 \
+            , max_req_w   , 0 \
+            , max_satisf_w, 0 \
+            , max_msg_w   , 0 \
+         )
+         gsub(/0/, "-", s)
+         print s
+
+         # Now to print the list, we’ll use sort. With -u because some packages
+         # have repeated reqs (depending on conditionals, which we don’t track;
+         # see comment further up).
+         sort = "sort -u"
+         # Get sort started, but without outputting anything, so we can close
+         # it without errors.
+         printf "" | sort
+         for (i in kcreqs) {
+            printf "%-*s %-*s %-*s %-*s %-*s\n" \
+               , max_config_w, kcreqs[i]["config"   ] \
+               , max_pkg_w   , kcreqs[i]["pkg"      ] \
+               , max_req_w   , \
+                  (kcreqs[i]["optional"] ? "recommended" : "required") "_" \
+                  (kcreqs[i]["on"      ] ? "on"          : "off"     )     \
+               , max_satisf_w, kcreqs[i]["satisfied"] ? "yes" : "no" \
+               , max_msg_w   , kcreqs[i]["msg"      ] \
+               | sort
+         }
+         close(sort)
+      }
+   '
+}
+
+parse_argv "${@}"
+main

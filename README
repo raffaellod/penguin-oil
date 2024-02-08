@@ -13,6 +13,11 @@ kernel-lsoot
    Lists out-of-tree firmware and/or modules for Linux along with the packages
    that installed them.
 
+kernel-config-required
+   Scans installed ebuilds for required Linux kernel config options, then
+   compares the set of options against the config of the running kernel (or
+   specific config), showing any requirements that are not met.
+
 
 2. Usage
 --------
